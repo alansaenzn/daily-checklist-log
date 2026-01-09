@@ -331,7 +331,7 @@ export default function TaskRow({
                   Priority
                 </label>
                 <div className="flex gap-2">
-                  {(["none","high","medium","low"] as PriorityLevel[]).map((level) => {
+                  {(["none","low","medium","high"] as PriorityLevel[]).map((level) => {
                     const config = PriorityConfig[level];
                     const isSelected = priority === level;
                     const outline = (() => {
