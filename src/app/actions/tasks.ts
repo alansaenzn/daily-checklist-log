@@ -1,3 +1,12 @@
+export async function deleteTask(taskTemplateId: string) {
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("task_templates")
+    .delete()
+    .eq("id", taskTemplateId);
+
+  if (error) throw new Error(error.message);
+}
 "use server";
 
 import { supabaseServer } from "@/lib/supabase/server";
