@@ -5,17 +5,189 @@
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --border: #333;
+    --input-bg: #181818;
+    --input-border: #444;
+    --input-text: #fafafa;
+    --label-secondary: #bdbdbd;
+    --button-bg: #171717;
+    --button-text: #ededed;
+    --button-border: #444;
+    --button-hover: #222;
+    --button-disabled-bg: #232323;
+    --button-disabled-text: #bdbdbd;
+    --button-inactive-bg: #191919;
+    --button-inactive-text: #bdbdbd;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+
+  /* Main containers (do NOT override .heatmap-cell or .bg-emerald-*) */
+  main, .rounded-xl, .border, .shadow-sm, .calendar-container, .history-container {
+    background-color: var(--background) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+  }
+  /* Protect heatmap cell backgrounds from dark mode overrides */
+  .heatmap-cell.bg-gray-200 {
+    background-color: #e5e7eb !important;
+  }
+  .heatmap-cell.bg-emerald-50 {
+    background-color: #f0fdf4 !important;
+  }
+  .heatmap-cell.bg-emerald-100 {
+    background-color: #dcfce7 !important;
+  }
+  .heatmap-cell.bg-emerald-200 {
+    background-color: #bbf7d0 !important;
+  }
+  .heatmap-cell.bg-emerald-300 {
+    background-color: #6ee7b7 !important;
+  }
+  .heatmap-cell.bg-emerald-400 {
+    background-color: #34d399 !important;
+  }
+  .heatmap-cell.bg-emerald-500 {
+    background-color: #10b981 !important;
+  }
+  .heatmap-cell.bg-emerald-600 {
+    background-color: #059669 !important;
+  }
+  .heatmap-cell.bg-emerald-700 {
+    background-color: #047857 !important;
+  }
+  .heatmap-cell.bg-emerald-800 {
+    background-color: #065f46 !important;
+  }
+  .heatmap-cell.bg-emerald-900 {
+    background-color: #064e3b !important;
+  }
+
+  /* YearlyHeatmap dark mode support */
+  .rounded-sm.bg-gray-200 {
+    background-color: #e5e7eb !important;
+  }
+  .rounded-sm.bg-emerald-100 {
+    background-color: #dcfce7 !important;
+  }
+  .rounded-sm.bg-emerald-400 {
+    background-color: #34d399 !important;
+  }
+  .rounded-sm.bg-emerald-600 {
+    background-color: #059669 !important;
+  }
+
+  /* History/Calendar specific: headings, weekday labels, day numbers */
+  .history-heading, .calendar-heading, .heatmap-heading {
+    color: #fff !important;
+    letter-spacing: 0.01em;
+  }
+  .calendar-weekdays, .calendar-weekdays > div {
+    color: #ededed !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+  }
+  .calendar-day-number {
+    color: #fff !important;
+    font-weight: 600 !important;
+    text-shadow: 0 1px 2px #000a;
+  }
+  .calendar-day-inactive {
+    color: #bdbdbd !important;
+    background: #181818 !important;
+  }
+  .calendar-border, .calendar-cell {
+    border-color: #444 !important;
+    background: #111 !important;
+  }
+  /* Headings and labels */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--foreground) !important;
+  }
+  .text-gray-600, .text-gray-500, .text-zinc-600, .text-zinc-500 {
+    color: var(--label-secondary) !important;
+  }
+
+  /* Heatmap header styling in dark mode */
+  .grid.grid-cols-7.border-b.bg-zinc-50 {
+    background-color: #1a1a1a !important;
+  }
+  .grid.grid-cols-7.border-b.bg-zinc-50 > div {
+    color: #d4d4d8 !important;
+  }
+
+  /* WeeklyHeatmap dark mode support */
+  .grid.grid-cols-1.gap-4 > div {
+    background-color: #111 !important;
+    border-color: #444 !important;
+  }
+
+  /* YearlyHeatmap and view containers */
+  .rounded-xl.border {
+    background-color: #0a0a0a !important;
+    border-color: #333 !important;
+  }
+
+  /* Inputs */
+  input, select, textarea {
+    background-color: var(--input-bg) !important;
+    color: var(--input-text) !important;
+    border-color: var(--input-border) !important;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--button-hover) !important;
+    border-color: var(--button-hover) !important;
+  }
+
+  /* Buttons */
+  button, .rounded.bg-black {
+    background-color: var(--button-bg) !important;
+    color: var(--button-text) !important;
+    border-color: var(--button-border) !important;
+  }
+  button:hover, .rounded.bg-black:hover {
+    background-color: var(--button-hover) !important;
+    color: var(--button-text) !important;
+  }
+  button:disabled, .rounded.bg-black:disabled {
+    background-color: var(--button-disabled-bg) !important;
+    color: var(--button-disabled-text) !important;
+    border-color: var(--button-border) !important;
+    opacity: 1 !important;
+  }
+  /* Inactive/secondary buttons */
+  .border-gray-100, .border-zinc-100, .border-gray-300, .border-zinc-300 {
+    border-color: var(--button-border) !important;
+  }
+  .text-red-600 {
+    color: #ff6b6b !important;
+  }
+  .bg-blue-50, .bg-zinc-50 {
+    background-color: #181818 !important;
+  }
+  /* Make sure disabled/inactive buttons are readable */
+  button[aria-pressed="false"], button.inactive, .text-gray-400 {
+    color: var(--button-inactive-text) !important;
+    background-color: var(--button-inactive-bg) !important;
+  }
+
+  /* Plain button override for card title area */
+  .btn-plain,
+  .btn-plain:hover,
+  .btn-plain:active,
+  .btn-plain:focus {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
   }
 }
 
@@ -24,3 +196,4 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+ 

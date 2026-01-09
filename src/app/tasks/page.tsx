@@ -1,68 +1,75 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import { createTaskTemplate, setTaskActive } from "../actions/tasks";
+import { redirect } from "next/navigation";
+import { TasksView } from "@/components/TasksView";
+import type { GoalTemplate } from "@/lib/task-types";
+
+async function getGoalTemplates(): Promise<GoalTemplate[]> {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    redirect("/login");
+  }
+
+  const { data, error } = await supabase
+    .from("goal_templates")
+    .select("*")
+    .or(`is_system.eq.true,created_by.eq.${userData.user.id}`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to load goal templates:", error.message);
+    return [];
+  }
+
+  return data || [];
+}
+
+export const metadata = {
+  title: "Tasks",
+  description: "Manage your active tasks and templates",
+};
 
 export default async function TasksPage() {
   const supabase = supabaseServer();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user!;
 
+  // Fetch task templates for Active tab (exclude archived tasks)
   const { data: templates, error } = await supabase
     .from("task_templates")
-    .select("id,title,category,is_active")
+    .select("id,title,category,is_active,task_type,archived_at,notes,url,due_date,due_time,list_name,details,project_id,priority,created_at,recurrence_interval_days,recurrence_days_mask")
     .eq("user_id", user.id)
+    .is("archived_at", null)
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
 
+  // Extract unique categories with counts for management UI
+  const categoryCounts: Record<string, number> = {};
+  (templates ?? []).forEach((t) => {
+    const name = t.category?.trim() || "General";
+    categoryCounts[name] = (categoryCounts[name] || 0) + 1;
+  });
+
+  if (!categoryCounts["General"]) {
+    categoryCounts["General"] = 0;
+  }
+
+  const categories = Object.entries(categoryCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Fetch goal templates for Templates tab
+  const goalTemplates = await getGoalTemplates();
+
   return (
-    <main className="mx-auto max-w-xl p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Tasks</h1>
-        <p className="text-sm text-gray-600">
-          Create and manage your daily templates.
-        </p>
-      </header>
-
-      <form action={createTaskTemplate} className="space-y-3 rounded border p-4">
-        <input
-          name="title"
-          className="w-full rounded border p-2"
-          placeholder="Task title (e.g., Run 5km)"
-          required
-        />
-        <input
-          name="category"
-          className="w-full rounded border p-2"
-          placeholder="Category (e.g., Training)"
-          defaultValue="General"
-        />
-        <button className="w-full rounded bg-black text-white p-2">
-          Add task
-        </button>
-      </form>
-
-      <section className="space-y-2">
-        {(templates ?? []).map((t) => (
-          <form
-            key={t.id as string}
-            action={async () => {
-              "use server";
-              await setTaskActive(t.id as string, !(t.is_active as boolean));
-            }}
-            className="flex items-center justify-between rounded border p-3"
-          >
-            <div>
-              <div className="font-medium">{t.title as string}</div>
-              <div className="text-xs text-gray-500">
-                {t.category as string}
-              </div>
-            </div>
-            <button className="rounded border px-3 py-2">
-              {t.is_active ? "Deactivate" : "Activate"}
-            </button>
-          </form>
-        ))}
-      </section>
+    <main className="mx-auto max-w-xl px-4 py-6 min-h-screen">
+      <TasksView
+        taskTemplates={templates || []}
+        categories={categories}
+        templates={goalTemplates}
+      />
     </main>
   );
 }
