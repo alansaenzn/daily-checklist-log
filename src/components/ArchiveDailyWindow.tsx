@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArchiveDailyTaskEntry } from "@/types/archive";
 import { TaskDetailsPreview } from "@/components/TaskDetailsPreview";
 
@@ -92,6 +92,27 @@ const inferDurationMinutes = (task: ArchiveDailyTaskEntry) => {
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(value, max));
 
+const overlapCardClasses = [
+  "translate-x-0 scale-[1] opacity-100 mt-0",
+  "translate-x-2 scale-[0.99] opacity-[0.94] -mt-2",
+  "translate-x-4 scale-[0.98] opacity-[0.88] -mt-2",
+  "translate-x-6 scale-[0.97] opacity-[0.82] -mt-2",
+];
+
+const barWidthClasses = [
+  "w-0",
+  "w-[10%]",
+  "w-[20%]",
+  "w-[30%]",
+  "w-[40%]",
+  "w-[50%]",
+  "w-[60%]",
+  "w-[70%]",
+  "w-[80%]",
+  "w-[90%]",
+  "w-[100%]",
+];
+
 const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
   data,
   rangeStart,
@@ -104,7 +125,8 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
   const [openTaskKey, setOpenTaskKey] = useState<string | null>(null);
   const [showOnlyCompleted, setShowOnlyCompleted] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
-  const [longPressArmedKey, setLongPressArmedKey] = useState<string | null>(null);
+  const longPressKeyRef = useRef<string | null>(null);
+  const longPressTimeoutRef = useRef<number | null>(null);
 
   const dateKeys = useMemo(() => {
     const startDate = parseDateKey(rangeStart);
@@ -154,8 +176,8 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
     [allTasksForDay]
   );
 
-  const timelineStartHour = 7;
-  const timelineEndHour = 22;
+  const timelineStartHour = 0;
+  const timelineEndHour = 23;
 
   type TimelineTask = {
     key: string;
@@ -191,9 +213,16 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
           start = new Date(end.getTime() - durationMinutes * 60_000);
         }
 
-        const bucketHourRaw = start ? start.getHours() : null;
-        const hourBucket: number | "all-day" = bucketHourRaw === null ? "all-day" : clamp(bucketHourRaw, timelineStartHour, timelineEndHour);
-        const startMinutesOfHour = start ? start.getMinutes() : 0;
+        const endHour = end ? end.getHours() : null;
+        let hourBucket: number | "all-day";
+        if (endHour !== null) {
+          hourBucket = clamp(endHour, timelineStartHour, timelineEndHour);
+        } else {
+          const bucketHourRaw = start ? start.getHours() : null;
+          hourBucket = bucketHourRaw === null ? "all-day" : clamp(bucketHourRaw, timelineStartHour, timelineEndHour);
+        }
+
+        const startMinutesOfHour = end ? end.getMinutes() : start ? start.getMinutes() : 0;
 
         return {
           key: `${selectedDateKey}-task-${idx}`,
@@ -243,29 +272,34 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
   );
 
   const isToday = selectedDateKey === todayKey;
-  const headerTitle = selectedDate
-    ? `${selectedDate.toLocaleDateString("en-US", { weekday: "long" })} · ${selectedDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })}`
-    : "";
-
   const handleLongPressStart = (taskKey: string, pointerType: string) => {
     if (pointerType !== "touch" && pointerType !== "pen") return;
-    setLongPressArmedKey(taskKey);
-    window.setTimeout(() => {
-      setLongPressArmedKey((armed) => {
-        if (armed !== taskKey) return armed;
+    longPressKeyRef.current = taskKey;
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+    }
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      if (longPressKeyRef.current === taskKey) {
         setRevealedKey(taskKey);
-        return armed;
-      });
+      }
     }, 450);
   };
 
   const handleLongPressEnd = () => {
-    setLongPressArmedKey(null);
+    longPressKeyRef.current = null;
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimeoutRef.current !== null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const renderTaskCard = (t: TimelineTask, indexInBucket: number, bucketTasks: TimelineTask[]) => {
     const { task, key, start, end, durationMinutes, activity } = t;
@@ -280,23 +314,17 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
       start.getTime() < (bucketTasks[indexInBucket - 1].end as Date).getTime();
 
     const overlapIndex = overlapsPrev ? Math.min(indexInBucket, 3) : 0;
-    const offsetX = overlapIndex * 10;
-    const scale = 1 - overlapIndex * 0.02;
-    const opacity = 1 - overlapIndex * 0.08;
-    const marginTop = overlapIndex ? -10 : 0;
-
+    const completedTime = task.completed_at ? formatTime(task.completed_at) : null;
     const timeRange = start && end ? `${formatShortTime(start)} – ${formatShortTime(end)}` : null;
     const showReveal = revealedKey === key;
 
     const normalized = Math.min(durationMinutes / 120, 1);
-    const barWidth = `${Math.round(normalized * 100)}%`;
+    const barWidthIndex = Math.min(Math.max(Math.round(normalized * 10), 0), 10);
+    const barWidthClass = barWidthClasses[barWidthIndex] ?? "w-0";
+    const overlapClass = overlapCardClasses[overlapIndex] ?? overlapCardClasses[0];
 
     return (
-      <div
-        key={key}
-        className="relative"
-        style={{ marginTop, transform: `translateX(${offsetX}px) scale(${scale})`, opacity }}
-      >
+      <div key={key} className={`relative z-0 ${overlapClass}`}>
         <button
           type="button"
           className={`w-full rounded-2xl bg-white px-4 py-3 text-left shadow-sm transition-[transform,opacity,background-color] duration-200 dark:bg-gray-950 ${
@@ -306,22 +334,22 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
           onPointerDown={(e) => handleLongPressStart(key, e.pointerType)}
           onPointerUp={handleLongPressEnd}
           onPointerCancel={handleLongPressEnd}
-          aria-expanded={isOpen}
-          aria-controls={`${key}-details`}
-          aria-label={`${task.title}${task.category ? `, ${task.category}` : ""}${task.completed_at ? `, completed at ${formatTime(task.completed_at)}` : ""}`}
+          aria-expanded={isOpen ? "true" : "false"}
+          aria-controls={isOpen ? `${key}-details` : undefined}
+          aria-label={`${task.title}${task.category ? `, ${task.category}` : ""}${completedTime ? `, completed at ${completedTime}` : ""}`}
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="grid grid-cols-[1fr_auto] items-start gap-3">
             <div className="min-w-0">
               <div className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">{task.title}</div>
               {task.category && (
                 <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">{task.category}</div>
               )}
-              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {timeRange ? timeRange : task.completed_at ? `Completed ${formatTime(task.completed_at)}` : "Not completed"}
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                {timeRange ? timeRange : completedTime ? `Completed ${completedTime}` : "Not completed"}
               </div>
               {showReveal && (
-                <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-                  Duration: {durationMinutes} min{task.completed_at ? ` • Completed: ${formatTime(task.completed_at)}` : ""}
+                <div className="mt-1 text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">
+                  Duration: {durationMinutes} min{completedTime ? ` • Completed: ${completedTime}` : ""}
                 </div>
               )}
             </div>
@@ -335,10 +363,9 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
             </span>
           </div>
 
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
             <div
-              className={`h-full rounded-full transition-[width] duration-200 ${barClasses(activity)}`}
-              style={{ width: barWidth }}
+              className={`h-full rounded-full transition-[width] duration-200 ${barClasses(activity)} ${barWidthClass}`}
             />
           </div>
           <div className="sr-only" aria-label={`Duration bar: approximately ${durationMinutes} minutes`} />
@@ -359,7 +386,7 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24 md:pb-28">
       {selectedDate && (
         <div
           className={`rounded-2xl bg-white p-5 shadow-sm dark:bg-gray-950 ${isToday ? "ring-1 ring-gray-200 dark:ring-gray-800" : ""}`}
@@ -378,7 +405,7 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
               <button
                 type="button"
                 role="switch"
-                aria-checked={showOnlyCompleted}
+                aria-checked={showOnlyCompleted ? "true" : "false"}
                 aria-label="Show only completed"
                 onClick={() => setShowOnlyCompleted((v) => !v)}
                 className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-200 ${
@@ -410,14 +437,14 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
       ) : (
         <div className="rounded-2xl bg-white shadow-sm dark:bg-gray-950 overflow-hidden">
           <div className="relative">
-            <div className="absolute left-16 top-0 bottom-0 border-l border-gray-200 dark:border-gray-800" aria-hidden />
+            <div className="absolute left-20 top-0 bottom-0 border-l border-gray-200 dark:border-gray-800" aria-hidden />
 
             {/* All-day row */}
             <div
               className="flex min-h-[64px] gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-900"
               aria-label="All-day timeline row"
             >
-              <div className="w-12 text-right text-xs font-semibold text-gray-500 dark:text-gray-500">All day</div>
+              <div className="w-16 text-right text-xs font-semibold text-gray-500 dark:text-gray-500">All day</div>
               <div className="flex-1 pl-2">
                 <div className="flex flex-col gap-3">
                   {(tasksByBucket.get("all-day") ?? []).length === 0 ? (
@@ -429,6 +456,7 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
               </div>
             </div>
 
+
             {hours.map((hour) => {
               const bucket = tasksByBucket.get(hour) ?? [];
               const displayHour = formatHourLabel(hour);
@@ -439,7 +467,7 @@ const ArchiveDailyWindow: React.FC<ArchiveDailyWindowProps> = ({
                   className="flex min-h-[72px] gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-900 last:border-b-0"
                   aria-label={`Timeline hour ${displayHour}`}
                 >
-                  <div className="w-12 text-right text-xs font-semibold text-gray-500 dark:text-gray-500">{displayHour}</div>
+                  <div className="w-16 text-right text-xs font-semibold text-gray-500 dark:text-gray-500">{displayHour}</div>
                   <div className="flex-1 pl-2">
                     <div className="flex flex-col gap-3">
                       {bucket.length === 0 ? (

@@ -1,24 +1,26 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createTaskTemplate } from "../actions/tasks";
 import { TASK_CATEGORIES, TASK_PRIORITY_LEVELS, type TaskPriority, type TaskType } from "@/lib/task-types";
 import { PriorityConfig } from "@/lib/priority-utils";
 import DatePicker from "@/components/DatePicker";
 import ProjectSelector from "@/components/ProjectSelector";
+import { useUserSettings } from "@/components/UserSettingsProvider";
 
 interface TaskFormProps {
   existingCategories: string[];
 }
 
 export default function TaskForm({ existingCategories }: TaskFormProps) {
+  const { settings } = useUserSettings();
   const [selectedCategory, setSelectedCategory] = useState("General");
   const [customCategory, setCustomCategory] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [dueDate, setDueDate] = useState("");
   const [projectId, setProjectId] = useState(""); // Empty string = Inbox (no project)
-  const [priority, setPriority] = useState<TaskPriority>("none");
-  const [difficulty, setDifficulty] = useState<number>(3);
+  const [priority, setPriority] = useState<TaskPriority>(settings.defaultPriority);
+  const [difficulty, setDifficulty] = useState<number>(settings.defaultDifficulty);
   const [taskType, setTaskType] = useState<TaskType>("recurring");
   const [recurrenceIntervalDays, setRecurrenceIntervalDays] = useState("1");
   const [repeatDays, setRepeatDays] = useState<Set<number>>(new Set());
@@ -37,6 +39,11 @@ export default function TaskForm({ existingCategories }: TaskFormProps) {
   ];
 
   const isCustom = selectedCategory === "Custom";
+
+  useEffect(() => {
+    setPriority(settings.defaultPriority);
+    setDifficulty(settings.defaultDifficulty);
+  }, [settings.defaultDifficulty, settings.defaultPriority]);
 
   async function handleSubmit(formData: FormData) {
     setIsSubmitting(true);
@@ -78,8 +85,8 @@ export default function TaskForm({ existingCategories }: TaskFormProps) {
       setCustomCategory("");
       setDueDate("");
       setProjectId("");
-      setPriority("none");
-      setDifficulty(3);
+      setPriority(settings.defaultPriority);
+      setDifficulty(settings.defaultDifficulty);
       setTaskType("recurring");
       setRecurrenceIntervalDays("1");
       

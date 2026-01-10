@@ -9,14 +9,14 @@ export function KeyMetricsCarousel({
   difficultySumData,
   year,
   month, // 0-based (0 = January) to match `HeatmapCalendar`
-  momentumThreshold,
+  intensityPeak,
   rangeMode = "mtd",
 }: {
   data: HeatmapData;
   difficultySumData?: Record<string, number>;
   year: number;
   month: number;
-  momentumThreshold: number;
+  intensityPeak: number;
   rangeMode?: "mtd" | "full";
 }) {
   const { streakDays, consistencyPct, avgDifficulty, avgTasksPerDay } = useMemo(() => {
@@ -61,7 +61,7 @@ export function KeyMetricsCarousel({
       );
       avgDiff = round1(totalDifficulty / totalTasks);
     } else {
-      const scale = Math.max(1, momentumThreshold);
+      const scale = Math.max(1, intensityPeak);
       const difficulties: number[] = [];
       for (const d of days) {
         if (d.count > 0) {
@@ -85,7 +85,7 @@ export function KeyMetricsCarousel({
       avgDifficulty: avgDiff,
       avgTasksPerDay: avgPerDay,
     };
-  }, [data, difficultySumData, year, month, momentumThreshold, rangeMode]);
+  }, [data, difficultySumData, year, month, intensityPeak, rangeMode]);
 
   return (
     <div className="mt-4 -mx-2 px-2">

@@ -10,6 +10,7 @@ import {
   getMonthLabelsForWeeks,
 } from "@/lib/heatmap-date-utils";
 import { getColorClass, getColorLabel } from "@/lib/heatmap-color-utils";
+import type { IntensityThresholds } from "@/lib/user-settings";
 
 interface YearlyHeatmapProps {
   /** The year to display (e.g., 2025) */
@@ -23,6 +24,9 @@ interface YearlyHeatmapProps {
 
   /** Optional CSS class for the container */
   className?: string;
+
+  /** Optional thresholds for activity intensity */
+  intensityThresholds?: IntensityThresholds;
 }
 
 /**
@@ -45,6 +49,7 @@ export const YearlyHeatmap: React.FC<YearlyHeatmapProps> = ({
   data,
   onDayClick,
   className = "",
+  intensityThresholds,
 }) => {
   // Generate weeks and month labels on first render (avoids hydration mismatch)
   const weeks = React.useMemo(() => generateYearWeeks(year), [year]);
@@ -200,8 +205,8 @@ export const YearlyHeatmap: React.FC<YearlyHeatmapProps> = ({
 
                     const dateKey = formatDateKey(date);
                     const count = getCountForDate(date, data);
-                    const colorClass = getColorClass(count);
-                    const colorLabel = getColorLabel(count);
+                    const colorClass = getColorClass(count, intensityThresholds);
+                    const colorLabel = getColorLabel(count, intensityThresholds);
                     const isHovered = mounted && hoveredDate === dateKey;
 
                     // Format date for accessibility
@@ -288,6 +293,11 @@ export const YearlyHeatmap: React.FC<YearlyHeatmapProps> = ({
             className="h-4 w-4 rounded-sm bg-emerald-600 dark:bg-emerald-400"
             title="High activity"
             aria-label="High activity"
+          />
+          <div
+            className="h-4 w-4 rounded-sm bg-emerald-800 dark:bg-emerald-300"
+            title="Peak activity"
+            aria-label="Peak activity"
           />
         </div>
         <span className="font-semibold">More</span>

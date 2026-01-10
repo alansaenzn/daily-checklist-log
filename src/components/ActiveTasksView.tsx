@@ -14,6 +14,7 @@ import TaskForm from "@/app/tasks/TaskForm";
 import { CollapsibleCategorySection } from "@/components/CollapsibleCategorySection";
 import { type TaskType } from "@/lib/task-types";
 import { normalizePriority, PriorityConfig } from "@/lib/priority-utils";
+import { useUserSettings } from "@/components/UserSettingsProvider";
 import {
   DndContext,
   closestCenter,
@@ -77,6 +78,7 @@ export function ActiveTasksView({
   // Initialize with stable SSR-safe defaults; hydrate from localStorage in effects
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [hasHydratedCategories, setHasHydratedCategories] = useState(false);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [projectLookup, setProjectLookup] = useState<Record<string, string>>({});
   const [sortMode, setSortMode] = useState<SortMode>("title");
@@ -93,6 +95,7 @@ export function ActiveTasksView({
   type TypeFilter = "all" | "recurring" | "one_off";
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const { settings, updateSettings } = useUserSettings();
 
   // Sensors for drag-and-drop
   const sensors = useSensors(
@@ -126,6 +129,10 @@ export function ActiveTasksView({
     } catch {}
     setHasLoadedSortMode(true);
   }, []);
+
+  useEffect(() => {
+    setShowDeactivated(settings.showInactiveTasks);
+  }, [settings.showInactiveTasks]);
 
   // Mark as mounted to safely render client-only subtrees
   useEffect(() => {
@@ -186,13 +193,18 @@ export function ActiveTasksView({
     } catch (e) {
       // no-op
     }
+
+    setHasHydratedCategories(true);
   }, []);
 
   // Persist collapsed categories to localStorage
   useEffect(() => {
+    if (!hasHydratedCategories) return;
     const collapsedArray = Array.from(collapsedCategories);
-    localStorage.setItem(CATEGORY_COLLAPSED_STORAGE_KEY, JSON.stringify(collapsedArray));
-  }, [collapsedCategories]);
+    try {
+      localStorage.setItem(CATEGORY_COLLAPSED_STORAGE_KEY, JSON.stringify(collapsedArray));
+    } catch {}
+  }, [collapsedCategories, hasHydratedCategories]);
 
   // Load project names once for inline previews
   useEffect(() => {
@@ -313,7 +325,7 @@ export function ActiveTasksView({
     return true;
   };
   return (
-    <div className="space-y-6">
+    <div className={settings.compactMode ? "space-y-4" : "space-y-6"}>
       <header className="space-y-2">
         <p className="text-xs uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wide">
           Management
@@ -365,7 +377,11 @@ export function ActiveTasksView({
               id="task-show-deactivated"
               type="checkbox"
               checked={showDeactivated}
-              onChange={(event) => setShowDeactivated(event.target.checked)}
+              onChange={(event) => {
+                const next = event.target.checked;
+                setShowDeactivated(next);
+                updateSettings({ showInactiveTasks: next });
+              }}
               className="absolute h-0 w-0 opacity-0"
             />
             <span

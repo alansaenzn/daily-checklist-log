@@ -1,5 +1,6 @@
 import React from "react";
-import { getMomentumColorClass } from "@/lib/heatmap-color-utils";
+import { getColorClass, getIntensityColorClass } from "@/lib/heatmap-color-utils";
+import type { IntensityThresholds } from "@/lib/user-settings";
 
 interface HeatmapCalendarProps {
   year: number;
@@ -9,16 +10,9 @@ interface HeatmapCalendarProps {
   /** Default: "gradient" (existing behavior). */
   variant?: "gradient" | "momentum";
 
-  /** Used only when variant is "momentum". Defaults to 5. */
-  momentumThreshold?: number;
+  /** Used when variant is "momentum" to map activity intensity. */
+  intensityThresholds?: IntensityThresholds;
 }
-
-const getColor = (count: number) => {
-  if (count === 0) return "bg-gray-200";
-  if (count <= 2) return "bg-emerald-100";
-  if (count <= 4) return "bg-emerald-400";
-  return "bg-emerald-700 text-white";
-};
 
 const getMonthMatrix = (year: number, month: number) => {
   const firstDay = new Date(year, month, 1);
@@ -47,7 +41,7 @@ export const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
   month,
   data,
   variant = "gradient",
-  momentumThreshold = 5,
+  intensityThresholds,
 }) => {
   const matrix = getMonthMatrix(year, month);
 
@@ -68,8 +62,8 @@ export const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
           const count = data[date] || 0;
           const colorClass =
             variant === "momentum"
-              ? getMomentumColorClass(count, momentumThreshold)
-              : getColor(count);
+              ? getIntensityColorClass(count, intensityThresholds)
+              : getColorClass(count);
           return (
             <div
               key={date}
