@@ -332,6 +332,10 @@ function ProjectAccordion({
   const [sortMode, setSortMode] = useState<SortMode>("title");
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  type DifficultyFilter = "all" | 1 | 2 | 3 | 4 | 5;
+  type TypeFilter = "all" | "recurring" | "one_off";
+  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
   const editingTaskId = editingTask?.projectId === project.id ? editingTask.taskId : null;
   const selectedTask = editingTaskId ? tasks.find((t) => t.id === editingTaskId) : null;
@@ -404,8 +408,16 @@ function ProjectAccordion({
 
     return compareByTitle(a, b);
   };
-
-  const sortedTasks = tasks.slice().sort(compareTasks);
+  // Apply filters prior to sorting
+  const filteredTasks = tasks.filter((t) => {
+    if (typeFilter !== "all" && (t.task_type as string) !== typeFilter) return false;
+    if (difficultyFilter !== "all") {
+      const n = typeof t.difficulty === "number" ? Math.floor(t.difficulty) : NaN;
+      if (!(n >= 1 && n <= 5) || n !== difficultyFilter) return false;
+    }
+    return true;
+  });
+  const sortedTasks = filteredTasks.slice().sort(compareTasks);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -621,6 +633,48 @@ function ProjectAccordion({
                 <option value="created_asc">Date created (Oldest)</option>
                 <option value="due_asc">Due date (Soonest)</option>
                 <option value="due_desc">Due date (Latest)</option>
+              </select>
+
+              {/* Difficulty filter */}
+              <label
+                htmlFor={`project-filter-difficulty-${project.id}`}
+                className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
+              >
+                Difficulty
+              </label>
+              <select
+                id={`project-filter-difficulty-${project.id}`}
+                value={String(difficultyFilter)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDifficultyFilter(val === "all" ? "all" : (Number(val) as DifficultyFilter));
+                }}
+                className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">Any</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+
+              {/* Type filter */}
+              <label
+                htmlFor={`project-filter-type-${project.id}`}
+                className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
+              >
+                Type
+              </label>
+              <select
+                id={`project-filter-type-${project.id}`}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+                className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All</option>
+                <option value="recurring">Recurring</option>
+                <option value="one_off">One-off</option>
               </select>
             </div>
           )}

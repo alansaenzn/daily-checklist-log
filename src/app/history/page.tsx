@@ -29,7 +29,18 @@ export default async function HistoryPage() {
   (logs ?? []).forEach((log) => {
     const date = log.log_date as string;
     const existing = byDate.get(date) ?? [];
-    byDate.set(date, [...existing, log as LogRow]);
+    const tpl = Array.isArray(log.task_templates)
+      ? (log.task_templates[0] ?? null)
+      : (log.task_templates ?? null);
+    const row: LogRow = {
+      log_date: date,
+      completed: Boolean(log.completed),
+      completed_at: (log.completed_at as string | null) ?? null,
+      task_templates: tpl
+        ? { title: String(tpl.title || "Completed task"), category: String(tpl.category || "General") }
+        : null,
+    };
+    byDate.set(date, [...existing, row]);
   });
 
   const dates = Array.from(byDate.keys());

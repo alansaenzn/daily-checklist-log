@@ -42,6 +42,10 @@ interface CalendarTabViewProps {
 type CalendarView = "scheduled" | "timeline";
 type TimelineRange = 7 | 14 | 30;
 
+type ScheduledFilter = "all" | "all_day" | "timed";
+type TimelineFilter = "all" | "recurring" | "one_off";
+type TimelineRowFilter = "all" | "projects" | "categories";
+
 type TimelineOccurrence = {
   instanceKey: string;
   id: string;
@@ -71,6 +75,11 @@ export function CalendarTabView({
   const [activeView, setActiveView] = useState<CalendarView>("scheduled");
   const [timelineRange, setTimelineRange] = useState<TimelineRange>(7);
   const [timelineStartDate, setTimelineStartDate] = useState(() => startOfDay(new Date()));
+  const [scheduledFilter, setScheduledFilter] = useState<ScheduledFilter>("all");
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
+  const [timelineRowFilter, setTimelineRowFilter] = useState<TimelineRowFilter>("all");
+  const [showTimelineFilterMenu, setShowTimelineFilterMenu] = useState(false);
+  const [showScheduledFilterMenu, setShowScheduledFilterMenu] = useState(false);
   const timelineMinStart = useMemo(() => startOfDay(new Date()), []);
   const timelineMaxStart = useMemo(
     () => addDays(timelineMinStart, Math.max(0, 30 - timelineRange)),
@@ -104,6 +113,42 @@ export function CalendarTabView({
       setTimelineStartDate(timelineMaxStart);
     }
   }, [timelineStartDate, timelineMinStart, timelineMaxStart]);
+
+  // Persist filters locally for user convenience
+  useEffect(() => {
+    try {
+      const storedScheduled = localStorage.getItem("calendarScheduledFilter");
+      if (storedScheduled === "all" || storedScheduled === "all_day" || storedScheduled === "timed") {
+        setScheduledFilter(storedScheduled as ScheduledFilter);
+      }
+      const storedTimeline = localStorage.getItem("calendarTimelineFilter");
+      if (storedTimeline === "all" || storedTimeline === "recurring" || storedTimeline === "one_off") {
+        setTimelineFilter(storedTimeline as TimelineFilter);
+      }
+      const storedRowFilter = localStorage.getItem("calendarTimelineRowFilter");
+      if (storedRowFilter === "all" || storedRowFilter === "projects" || storedRowFilter === "categories") {
+        setTimelineRowFilter(storedRowFilter as TimelineRowFilter);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("calendarScheduledFilter", scheduledFilter);
+    } catch {}
+  }, [scheduledFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("calendarTimelineFilter", timelineFilter);
+    } catch {}
+  }, [timelineFilter]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("calendarTimelineRowFilter", timelineRowFilter);
+    } catch {}
+  }, [timelineRowFilter]);
 
   return (
     <div className="space-y-6">
@@ -155,8 +200,77 @@ export function CalendarTabView({
 
       {activeView === "scheduled" ? (
         <div className="space-y-4">
+          <div className="flex justify-end">
+            <div className="relative w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setShowScheduledFilterMenu((prev) => !prev)}
+                className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 shadow-sm"
+                aria-haspopup="menu"
+                aria-expanded={showScheduledFilterMenu}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h18M8 9h8M10 14h4M12 19h0" />
+                  </svg>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Filter</div>
+                </div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {scheduledFilter === "all"
+                    ? "All Tasks"
+                    : scheduledFilter === "all_day"
+                    ? "All Day"
+                    : "Timed"}
+                </div>
+              </button>
+              {showScheduledFilterMenu && (
+                <div className="absolute right-0 mt-2 w-full max-w-xs sm:max-w-none sm:w-56 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-3 z-10">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Task Timing</p>
+                  <div className="space-y-1">
+                    {[
+                      { key: "all", label: "All Tasks" },
+                      { key: "all_day", label: "All Day" },
+                      { key: "timed", label: "Timed" },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setScheduledFilter(key as ScheduledFilter);
+                          setShowScheduledFilterMenu(false);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition ${
+                          scheduledFilter === key
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-100"
+                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        }`}
+                        aria-pressed={scheduledFilter === key}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="pt-3 flex justify-end">
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-gray-500 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
+                      onClick={() => setShowScheduledFilterMenu(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           {scheduledRange.map((dateInfo) => {
-            const tasks = tasksByDate[dateInfo.isoDate] || [];
+            const tasksRaw = tasksByDate[dateInfo.isoDate] || [];
+            const tasks = tasksRaw.filter((t) => {
+              if (scheduledFilter === "all") return true;
+              if (scheduledFilter === "all_day") return !t.due_time;
+              if (scheduledFilter === "timed") return !!t.due_time;
+              return true;
+            });
             const hasTasks = tasks.length > 0;
 
             return (
@@ -296,8 +410,8 @@ export function CalendarTabView({
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 order-1">
               <button
                 type="button"
                 onClick={() =>
@@ -332,26 +446,130 @@ export function CalendarTabView({
               >
                 →
               </button>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                 {dateRange[0]?.dateLabel} – {dateRange[dateRange.length - 1]?.dateLabel}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              {[7, 14, 30].map((range) => (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => setTimelineRange(range as TimelineRange)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide border ${
-                    timelineRange === range
-                      ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                      : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  }`}
-                >
-                  {range} days
-                </button>
-              ))}
+            {/* Single summary pill menu to control range, task type, and row type */}
+            <div className="relative w-full sm:w-auto order-3 sm:order-2">
+              <button
+                type="button"
+                onClick={() => setShowTimelineFilterMenu((prev) => !prev)}
+                className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-3 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 shadow-sm"
+                aria-haspopup="menu"
+                aria-expanded={showTimelineFilterMenu}
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h18M8 9h8M10 14h4M12 19h0" />
+                  </svg>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Filter</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 text-sm font-semibold text-gray-900 dark:text-white">
+                  <span>{timelineRange} days</span>
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    {timelineFilter === "all"
+                      ? "All Tasks"
+                      : timelineFilter === "recurring"
+                      ? "Recurring"
+                      : "One-off"}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    {timelineRowFilter === "projects"
+                      ? "Projects"
+                      : timelineRowFilter === "categories"
+                      ? "Categories"
+                      : "All Rows"}
+                  </span>
+                </div>
+              </button>
+              {showTimelineFilterMenu && (
+                <div className="absolute right-0 mt-2 w-full max-w-xs sm:max-w-none sm:w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-3 z-10">
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Range</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {[7, 14, 30].map((range) => (
+                      <button
+                        key={range}
+                        type="button"
+                        onClick={() => {
+                          setTimelineRange(range as TimelineRange);
+                          setShowTimelineFilterMenu(false);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold uppercase tracking-wide border ${
+                          timelineRange === range
+                            ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                            : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white"
+                        }`}
+                      >
+                        {range} days
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Task Type</p>
+                  <div className="space-y-1 mb-3">
+                    {[
+                      { key: "all", label: "All Tasks" },
+                      { key: "recurring", label: "Recurring Only" },
+                      { key: "one_off", label: "One-off Only" },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setTimelineFilter(key as TimelineFilter);
+                          setShowTimelineFilterMenu(false);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition ${
+                          timelineFilter === key
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-100"
+                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Row Type</p>
+                  <div className="space-y-1">
+                    {[
+                      { key: "all", label: "All Rows" },
+                      { key: "projects", label: "Projects Only" },
+                      { key: "categories", label: "Categories Only" },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setTimelineRowFilter(key as TimelineRowFilter);
+                          setShowTimelineFilterMenu(false);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium transition ${
+                          timelineRowFilter === key
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-100"
+                            : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 flex justify-end">
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-gray-500 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"
+                      onClick={() => setShowTimelineFilterMenu(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -385,7 +603,16 @@ export function CalendarTabView({
                     No upcoming tasks
                   </div>
                 ) : (
-                  timelineRows.map((row) => (
+                  <>
+                  {timelineRows
+                    .filter((row) =>
+                      timelineRowFilter === "projects"
+                        ? row.type === "project"
+                        : timelineRowFilter === "categories"
+                        ? row.type === "category"
+                        : true
+                    )
+                    .map((row) => (
                     <div
                       key={row.key}
                       className="grid"
@@ -400,7 +627,13 @@ export function CalendarTabView({
                         </div>
                       </div>
                       {dateRange.map((dateInfo) => {
-                        const tasks = row.tasksByDate[dateInfo.isoDate] || [];
+                        const tasksRaw = row.tasksByDate[dateInfo.isoDate] || [];
+                        const tasks = tasksRaw.filter((t) => {
+                          if (timelineFilter === "all") return true;
+                          if (timelineFilter === "recurring") return t.is_recurring;
+                          if (timelineFilter === "one_off") return !t.is_recurring;
+                          return true;
+                        });
                         return (
                           <div
                             key={`${row.key}-${dateInfo.isoDate}`}
@@ -415,7 +648,8 @@ export function CalendarTabView({
                         );
                       })}
                     </div>
-                  ))
+                  ))}
+                  </>
                 )}
               </div>
             </div>

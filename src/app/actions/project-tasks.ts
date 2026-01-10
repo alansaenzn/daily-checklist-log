@@ -14,6 +14,7 @@ export interface TaskData {
   list_name: string | null;
   project_id: string | null;
   priority?: string | null;
+  difficulty?: number | null;
   notes?: string | null;
   url?: string | null;
   details?: string | null;
@@ -31,7 +32,7 @@ export async function getProjectTasks(projectId: string): Promise<TaskData[]> {
   const { data, error } = await supabase
     .from("task_templates")
     .select(
-      "id,title,category,task_type,is_active,created_at,due_date,due_time,list_name,project_id,archived_at,notes,url,details,priority"
+      "id,title,category,task_type,is_active,created_at,due_date,due_time,list_name,project_id,archived_at,notes,url,details,priority,difficulty"
     )
     .eq("user_id", userData.user.id)
     .eq("project_id", projectId)
@@ -52,6 +53,7 @@ export async function getProjectTasks(projectId: string): Promise<TaskData[]> {
     list_name: t.list_name ?? null,
     project_id: t.project_id ?? null,
     priority: t.priority ?? null,
+    difficulty: typeof (t as any).difficulty === "number" ? (t as any).difficulty : null,
     notes: t.notes ?? null,
     url: t.url ?? null,
     details: t.details ?? null,

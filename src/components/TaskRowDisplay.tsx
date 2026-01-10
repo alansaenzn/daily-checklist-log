@@ -14,6 +14,7 @@ export type TaskData = {
   list_name: string | null;
   project_id: string | null;
   priority?: string | null;
+  difficulty?: number | null;
   notes?: string | null;
   url?: string | null;
   details?: string | null;
