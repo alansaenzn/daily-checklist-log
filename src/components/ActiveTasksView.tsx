@@ -39,6 +39,7 @@ interface TaskTemplate {
   task_type: string | null;
   archived_at: string | null;
   created_at: string | null;
+  difficulty?: number | null;
   notes: string | null;
   url: string | null;
   due_date: string | null;
@@ -87,6 +88,11 @@ export function ActiveTasksView({
   const [taskOverrides, setTaskOverrides] = useState<Record<string, Partial<TaskTemplate>>>(
     {}
   );
+  // New filters
+  type DifficultyFilter = "all" | 1 | 2 | 3 | 4 | 5;
+  type TypeFilter = "all" | "recurring" | "one_off";
+  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
   // Sensors for drag-and-drop
   const sensors = useSensors(
@@ -107,6 +113,17 @@ export function ActiveTasksView({
         setSortMode(stored as SortMode);
       }
     } catch {}
+    // hydrate filters
+    try {
+      const df = localStorage.getItem("tasks-filter-difficulty");
+      if (df === "1" || df === "2" || df === "3" || df === "4" || df === "5") {
+        setDifficultyFilter(Number(df) as DifficultyFilter);
+      }
+    } catch {}
+    try {
+      const tf = localStorage.getItem("tasks-filter-type");
+      if (tf === "recurring" || tf === "one_off") setTypeFilter(tf as TypeFilter);
+    } catch {}
     setHasLoadedSortMode(true);
   }, []);
 
@@ -121,7 +138,22 @@ export function ActiveTasksView({
     try {
       localStorage.setItem("active-tasks-sort-mode", sortMode);
     } catch {}
+    try {
+      localStorage.setItem("tasks-filter-difficulty", String(difficultyFilter));
+    } catch {}
+    try {
+      localStorage.setItem("tasks-filter-type", typeFilter);
+    } catch {}
   }, [hasLoadedSortMode, sortMode]);
+  // Also persist when filters change after hydration
+  useEffect(() => {
+    if (!hasLoadedSortMode) return;
+    try { localStorage.setItem("tasks-filter-difficulty", String(difficultyFilter)); } catch {}
+  }, [hasLoadedSortMode, difficultyFilter]);
+  useEffect(() => {
+    if (!hasLoadedSortMode) return;
+    try { localStorage.setItem("tasks-filter-type", typeFilter); } catch {}
+  }, [hasLoadedSortMode, typeFilter]);
 
   // Initialize category order and collapsed categories from localStorage (client-only)
   useEffect(() => {
@@ -344,6 +376,48 @@ export function ActiveTasksView({
           </span>
         </label>
 
+          {/* Difficulty filter */}
+          <label
+            htmlFor="task-filter-difficulty"
+            className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
+          >
+            Difficulty
+          </label>
+          <select
+            id="task-filter-difficulty"
+            value={String(difficultyFilter)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setDifficultyFilter(val === "all" ? "all" : (Number(val) as DifficultyFilter));
+            }}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">Any</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+
+          {/* Type filter */}
+          <label
+            htmlFor="task-filter-type"
+            className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
+          >
+            Type
+          </label>
+          <select
+            id="task-filter-type"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All</option>
+            <option value="recurring">Recurring</option>
+            <option value="one_off">One-off</option>
+          </select>
+
         {/* View Mode Toggle */}
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide">View</span>
@@ -390,7 +464,18 @@ export function ActiveTasksView({
           // Apply active/deactivated filter without refetching.
           const filtered = deduped.filter((task) => {
             const active = isActiveTask(task);
-            return showDeactivated ? !active : active;
+            if (showDeactivated ? active : !active) return false;
+            // Type filter
+            if (typeFilter !== "all") {
+              if ((task.task_type as TaskType) !== typeFilter) return false;
+            }
+            // Difficulty filter (exact match on 1-5)
+            if (difficultyFilter !== "all") {
+              const raw = (task as any).difficulty;
+              const n = typeof raw === "number" ? Math.floor(raw) : NaN;
+              if (!(n >= 1 && n <= 5) || n !== difficultyFilter) return false;
+            }
+            return true;
           });
 
           if (filtered.length === 0) {
@@ -651,7 +736,7 @@ function SimpleTaskListItem({
     return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   })();
   const dueTimeLabel = task.due_time?.trim() || null;
-  const schedule = [dueDateLabel, dueTimeLabel].filter(Boolean).join(" ");
+  const schedule = dueDateLabel ? `Due ${dueDateLabel}${dueTimeLabel ? ", " + dueTimeLabel : ""}` : "";
   const projectLabel = (() => {
     const id = task.project_id || "";
     if (id === "") return null;
@@ -662,11 +747,26 @@ function SimpleTaskListItem({
     if (priorityLevel === "none") return null;
     const cfg = PriorityConfig[priorityLevel];
     return (
-      <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.textColor}`}>
-        <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${cfg.dotColor}`} />
-        <span>{cfg.label}</span>
-      </span>
+      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cfg.bgColor} ${cfg.textColor}`}>{cfg.label}</span>
     );
+  })();
+
+  const difficultyBadge = (() => {
+    const label = (() => {
+      const n = typeof task.difficulty === "number" ? Math.floor(task.difficulty) : 3;
+      if (n <= 2) return "Easy";
+      if (n === 3) return "Medium";
+      if (n === 4) return "Hard";
+      return "Very Hard";
+    })();
+    const cls = (() => {
+      const n = typeof task.difficulty === "number" ? Math.floor(task.difficulty) : 3;
+      if (n <= 2) return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200";
+      if (n === 3) return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200";
+      if (n === 4) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200";
+      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200";
+    })();
+    return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>{label}</span>;
   })();
 
   return (
@@ -692,21 +792,17 @@ function SimpleTaskListItem({
           )}
         </div>
         <div className="mt-1 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 flex-wrap">
-          {schedule && (
-            <span className="text-red-600 dark:text-red-400 font-medium">{schedule}</span>
-          )}
-          <span className="text-gray-500">•</span>
+          {priorityBadge}
+          {difficultyBadge}
           <span className="font-medium text-gray-800 dark:text-gray-200">{category}</span>
-          {projectLabel && <span className="text-gray-500">•</span>}
-          {projectLabel && (
-            <span className="text-gray-700 dark:text-gray-300">{projectLabel}</span>
+          {schedule && (
+            <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+              {schedule}
+            </span>
           )}
-          {priorityBadge && (
-            <>
-              <span className="text-gray-500">•</span>
-              {priorityBadge}
-            </>
-          )}
+          <span className="text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200">
+            {(isRecurring ? "Recurring" : "One-off")}
+          </span>
         </div>
       </div>
       <div className="pl-2 text-sm text-blue-600 dark:text-blue-400 font-semibold">Edit</div>

@@ -542,15 +542,6 @@ export default function TaskRow({
                   <h3 className="font-semibold text-base text-gray-900 dark:text-gray-50 truncate">
                     {title}
                   </h3>
-                  <span
-                    className={`text-xs px-2 py-1 rounded font-medium whitespace-nowrap ${
-                      task.task_type === "one_off"
-                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200"
-                        : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
-                    }`}
-                  >
-                    {task.task_type === "one_off" ? "one-off" : "recurring"}
-                  </span>
                   {isCompletedOneOff && (
                     <span className="text-xs px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap">
                       completed
@@ -558,42 +549,56 @@ export default function TaskRow({
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
+                  {/* Priority pill */}
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${priorityConfig.bgColor} ${priorityConfig.textColor}`}
+                    aria-label={`Priority: ${priorityBadgeLabel}`}
+                  >
+                    {priorityBadgeLabel}
+                  </span>
+
+                  {/* Difficulty pill with label */}
+                  {(() => {
+                    const label = (() => {
+                      if (difficulty <= 2) return "Easy";
+                      if (difficulty === 3) return "Medium";
+                      if (difficulty === 4) return "Hard";
+                      return "Very Hard";
+                    })();
+                    const cls = (() => {
+                      if (difficulty <= 2) return "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200";
+                      if (difficulty === 3) return "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200";
+                      if (difficulty === 4) return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200";
+                      return "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200";
+                    })();
+                    return (
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`} aria-label={`Difficulty: ${label}`}>
+                        {label}
+                      </span>
+                    );
+                  })()}
+
+                  {/* Category */}
                   <span className="font-medium text-gray-700 dark:text-gray-200">
                     {category || "Uncategorized"}
                   </span>
+
+                  {/* Schedule */}
                   {hasSchedule && (
-                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                      {scheduleParts.join(" • ")}
+                    <span className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                      {formattedDueDate ? `Due ${formattedDueDate}${dueTime ? ", " + dueTime : ""}` : scheduleParts.join(" • ")}
                     </span>
                   )}
+
+                  {/* Type pill at end */}
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${priorityConfig.bgColor} ${priorityConfig.textColor}`}
-                    aria-label={`Priority: ${priorityBadgeLabel}`}
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
+                      task.task_type === "one_off"
+                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200"
+                        : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
+                    }`}
                   >
-                    <span
-                      aria-hidden="true"
-                      className={`h-2.5 w-2.5 rounded-full ${priorityConfig.dotColor}`}
-                    />
-                    <span>{priorityBadgeLabel}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-2" aria-label={`Difficulty: ${difficulty} out of 5`}>
-                    <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Diff</span>
-                    <span className="inline-flex items-center gap-1">
-                      {[1, 2, 3, 4, 5].map((level) => {
-                        const active = difficulty >= level;
-                        return (
-                          <span
-                            key={level}
-                            className={`h-3 w-3 rounded-full border-2 ${
-                              active
-                                ? "bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500"
-                                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-500"
-                            }`}
-                            aria-hidden="true"
-                          />
-                        );
-                      })}
-                    </span>
+                    {task.task_type === "one_off" ? "One-off" : "Recurring"}
                   </span>
                 </div>
               </div>
