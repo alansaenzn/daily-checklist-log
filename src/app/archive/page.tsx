@@ -13,6 +13,7 @@
  */
 
 import { supabaseServer } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/auth";
 import { DateNavigationProvider } from "@/lib/DateNavigationContext";
 import ArchiveView from "@/components/ArchiveView";
 import {
@@ -29,9 +30,8 @@ export const metadata = {
 };
 
 export default async function ArchivePage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user!;
 
   const today = new Date();
   const year = today.getFullYear();

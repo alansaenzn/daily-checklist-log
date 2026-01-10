@@ -4,7 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
-  const supabase = createServerClient(
+  // Update Supabase cookies - auth checks moved to layouts/pages
+  createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -18,25 +19,6 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
-
-  const { data } = await supabase.auth.getUser();
-  const isAuthed = !!data.user;
-
-  const path = request.nextUrl.pathname;
-  const isPublic =
-    path.startsWith("/login") || path.startsWith("/auth/callback");
-
-  if (!isAuthed && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  if (isAuthed && path === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/today";
-    return NextResponse.redirect(url);
-  }
 
   return response;
 }

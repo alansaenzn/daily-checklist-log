@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { getAuthUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  // Redirect authenticated users to /today
+  const user = await getAuthUser();
+  if (user) {
+    redirect("/today");
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">

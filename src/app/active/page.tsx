@@ -8,6 +8,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import TodayChecklist from "../today/today-checklist";
 import { UserSettingsProvider } from "@/components/UserSettingsProvider";
+import { requireAuth } from "@/lib/auth";
 import { fetchUserSettings } from "@/lib/user-settings";
 import { formatLocalDate } from "@/lib/local-date";
 import { TaskBehavior, type TaskType } from "@/lib/task-types";
@@ -18,10 +19,8 @@ export const metadata = {
 };
 
 export default async function ActivePage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user!;
   const today = formatLocalDate();
 
   // Fetch all task templates with task_type (default to "recurring" for backward compatibility)

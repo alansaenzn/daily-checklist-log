@@ -2,12 +2,11 @@ import { supabaseServer } from "@/lib/supabase/server";
 import TodayChecklist from "./today-checklist";
 import { formatLocalDate } from "@/lib/local-date";
 import { TaskBehavior, type TaskType } from "@/lib/task-types";
+import { requireAuth } from "@/lib/auth";
 
 export default async function TodayPage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user!;
   const today = formatLocalDate();
 
   // Fetch all task templates with task_type (default to "recurring" for backward compatibility)
