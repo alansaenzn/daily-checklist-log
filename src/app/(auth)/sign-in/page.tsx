@@ -1,12 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export default function SignInPage() {
   const supabase = supabaseBrowser();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      // Clear any existing session so a new email logs into a fresh account
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active) return;
+
+      if (user) {
+        await supabase.auth.signOut();
+      }
+
+      if (active) setReady(true);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +44,9 @@ export default function SignInPage() {
   return (
     <main className="mx-auto max-w-md p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Sign in</h1>
-      {sent ? (
+      {!ready ? (
+        <p>Preparing sign-in…</p>
+      ) : sent ? (
         <p>Check your email for the magic link.</p>
       ) : (
         <form onSubmit={signIn} className="space-y-3">
