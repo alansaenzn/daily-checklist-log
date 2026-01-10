@@ -15,7 +15,8 @@ import { SystemHealthCard } from "@/components/SystemHealthCard";
 import { HeatmapCalendar } from "@/components/HeatmapCalendar";
 import { CalendarTabView, ScheduledTask, TimelineSourceTask } from "@/components/CalendarTabView";
 import { ProjectsTabView, Project } from "@/components/ProjectsTabView";
-import { useMomentumSettings } from "@/components/MomentumSettingsProvider";
+import { useUserSettings } from "@/components/UserSettingsProvider";
+import { intensityThresholdsFromSettings } from "@/lib/user-settings";
 import WeeklyCompletionTrend from "@/components/WeeklyCompletionTrend";
 import { KeyMetricsCarousel } from "@/components/KeyMetricsCarousel";
 
@@ -42,7 +43,8 @@ export function DashboardView({
 }: DashboardViewProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("momentum");
   const [metricsRange, setMetricsRange] = useState<"mtd" | "full">("mtd");
-  const { momentumThreshold } = useMomentumSettings();
+  const { settings } = useUserSettings();
+  const intensityThresholds = intensityThresholdsFromSettings(settings);
   const projectLookup = projects.reduce<Record<string, string>>((acc, project) => {
     acc[project.id] = project.name;
     return acc;
@@ -129,7 +131,7 @@ export function DashboardView({
                   year={heatmapYear}
                   month={heatmapMonth}
                   variant="momentum"
-                  momentumThreshold={momentumThreshold}
+                  intensityThresholds={intensityThresholds}
                 />
               </div>
             ) : (
@@ -176,7 +178,7 @@ export function DashboardView({
                     difficultySumData={heatmapDifficultySumData}
                     year={heatmapYear}
                     month={heatmapMonth}
-                    momentumThreshold={momentumThreshold}
+                    intensityPeak={settings.intensityPeak}
                     rangeMode={metricsRange}
                   />
                 </div>

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getColorClass, getTextColorClass } from "@/lib/heatmap-color-utils";
+import type { IntensityThresholds } from "@/lib/user-settings";
 
 type CalendarDayTask = {
   title: string;
@@ -19,6 +20,7 @@ interface CalendarMonthViewProps {
   dailyData?: Record<string, CalendarDayTask[]>; // { 'YYYY-MM-DD': tasks (completed + scheduled) }
   scheduledData?: Record<string, number>; // { 'YYYY-MM-DD': count of scheduled tasks }
   criticalMissByDate?: Record<string, boolean>; // { 'YYYY-MM-DD': true if a critical habit was missed }
+  intensityThresholds?: IntensityThresholds;
   onDayClick?: (date: Date, count: number) => void;
 }
 
@@ -80,6 +82,7 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
   dailyData = {},
   scheduledData = {},
   criticalMissByDate = {},
+  intensityThresholds,
   onDayClick,
 }) => {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
@@ -225,11 +228,11 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
           const dateObj = new Date(year, month, day);
 
           const hasScheduled = scheduledCount > 0;
-          const colorClass = getColorClass(filteredCount);
+          const colorClass = getColorClass(filteredCount, intensityThresholds);
           const textClass =
             filteredCount === 0
               ? "text-zinc-500 dark:text-zinc-400"
-              : `${getTextColorClass(filteredCount)} dark:text-white`;
+              : `${getTextColorClass(filteredCount, intensityThresholds)} dark:text-white`;
           const isActive = filteredCount > 0;
           // Keep the checkmark indicator independent of filters (based on total completion).
           const isAllDone = hasScheduled && rawCount >= scheduledCount && scheduledCount > 0;

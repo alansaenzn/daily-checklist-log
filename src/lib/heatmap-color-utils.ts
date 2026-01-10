@@ -3,35 +3,48 @@
  * Uses Tailwind CSS utility classes for consistent styling.
  */
 
-/**
- * Color intensity thresholds for heatmap cells.
- * Defines the mapping between completion count ranges and visual intensity.
- */
-export const COLOR_THRESHOLDS = {
-  none: 0,
-  light: 3,
-  medium: 7,
-  dark: 10,
-} as const;
+import type { IntensityThresholds } from "@/lib/user-settings";
+import { DEFAULT_INTENSITY_THRESHOLDS } from "@/lib/user-settings";
 
-export const MOMENTUM_THRESHOLD_DEFAULT = 5;
+export type IntensityLevel = "none" | "light" | "medium" | "high" | "peak";
 
-export function getMomentumColorClass(count: number, momentumThreshold: number): string {
-  if (count === 0) {
-    return "bg-gray-200 dark:bg-gray-700";
-  }
-
-  if (count >= momentumThreshold) {
-    return "bg-emerald-600 dark:bg-emerald-400";
-  }
-
-  return "bg-emerald-100 dark:bg-emerald-900";
+export function normalizeIntensityThresholds(
+  thresholds?: Partial<IntensityThresholds>
+): IntensityThresholds {
+  return {
+    light: thresholds?.light ?? DEFAULT_INTENSITY_THRESHOLDS.light,
+    medium: thresholds?.medium ?? DEFAULT_INTENSITY_THRESHOLDS.medium,
+    high: thresholds?.high ?? DEFAULT_INTENSITY_THRESHOLDS.high,
+    peak: thresholds?.peak ?? DEFAULT_INTENSITY_THRESHOLDS.peak,
+  };
 }
 
-export function getMomentumColorLabel(count: number, momentumThreshold: number): string {
-  if (count === 0) return "No activity";
-  if (count >= momentumThreshold) return "Meets momentum threshold";
-  return "Below momentum threshold";
+export function getIntensityLevel(count: number, thresholds?: Partial<IntensityThresholds>): IntensityLevel {
+  if (count <= 0) return "none";
+  const resolved = normalizeIntensityThresholds(thresholds);
+  if (count >= resolved.peak) return "peak";
+  if (count >= resolved.high) return "high";
+  if (count >= resolved.medium) return "medium";
+  if (count >= resolved.light) return "light";
+  return "light";
+}
+
+export function getIntensityColorClass(count: number, thresholds?: Partial<IntensityThresholds>): string {
+  const level = getIntensityLevel(count, thresholds);
+  if (level === "none") return "bg-gray-200 dark:bg-gray-700";
+  if (level === "light") return "bg-emerald-100 dark:bg-emerald-900";
+  if (level === "medium") return "bg-emerald-400 dark:bg-emerald-600";
+  if (level === "high") return "bg-emerald-600 dark:bg-emerald-400";
+  return "bg-emerald-800 text-white dark:bg-emerald-300 dark:text-gray-900";
+}
+
+export function getIntensityLabel(count: number, thresholds?: Partial<IntensityThresholds>): string {
+  const level = getIntensityLevel(count, thresholds);
+  if (level === "none") return "No activity";
+  if (level === "light") return "Light activity";
+  if (level === "medium") return "Medium activity";
+  if (level === "high") return "High activity";
+  return "Peak activity";
 }
 
 /**
@@ -41,18 +54,8 @@ export function getMomentumColorLabel(count: number, momentumThreshold: number):
  * @param count - The number of tasks completed on that day
  * @returns Tailwind CSS class name for the background color
  */
-export function getColorClass(count: number): string {
-  if (count === 0) {
-    return "bg-gray-200 dark:bg-gray-700";
-  }
-  if (count <= 3) {
-    return "bg-emerald-100 dark:bg-emerald-900";
-  }
-  if (count <= 7) {
-    return "bg-emerald-400 dark:bg-emerald-600";
-  }
-  // count >= 10
-  return "bg-emerald-600 dark:bg-emerald-400";
+export function getColorClass(count: number, thresholds?: Partial<IntensityThresholds>): string {
+  return getIntensityColorClass(count, thresholds);
 }
 
 /**
@@ -61,11 +64,8 @@ export function getColorClass(count: number): string {
  * @param count - The number of tasks completed
  * @returns A human-readable intensity label
  */
-export function getColorLabel(count: number): string {
-  if (count === 0) return "No activity";
-  if (count <= 3) return "Light activity";
-  if (count <= 7) return "Medium activity";
-  return "High activity";
+export function getColorLabel(count: number, thresholds?: Partial<IntensityThresholds>): string {
+  return getIntensityLabel(count, thresholds);
 }
 
 /**
@@ -74,17 +74,13 @@ export function getColorLabel(count: number): string {
  * @param count - The number of tasks completed
  * @returns Object with r, g, b values (0-255)
  */
-export function getColorRGB(count: number): { r: number; g: number; b: number } {
-  if (count === 0) {
-    return { r: 229, g: 231, b: 235 }; // gray-200
-  }
-  if (count <= 2) {
-    return { r: 220, g: 252, b: 231 }; // emerald-100
-  }
-  if (count <= 4) {
-    return { r: 52, g: 211, b: 153 }; // emerald-400
-  }
-  return { r: 5, g: 150, b: 105 }; // emerald-600
+export function getColorRGB(count: number, thresholds?: Partial<IntensityThresholds>): { r: number; g: number; b: number } {
+  const level = getIntensityLevel(count, thresholds);
+  if (level === "none") return { r: 229, g: 231, b: 235 };
+  if (level === "light") return { r: 220, g: 252, b: 231 };
+  if (level === "medium") return { r: 52, g: 211, b: 153 };
+  if (level === "high") return { r: 5, g: 150, b: 105 };
+  return { r: 6, g: 95, b: 70 };
 }
 
 /**
@@ -94,11 +90,13 @@ export function getColorRGB(count: number): { r: number; g: number; b: number } 
  * @param count - The number of tasks completed
  * @returns CSS color value (hex, rgb, or named color)
  */
-export function getColorValue(count: number): string {
-  if (count === 0) return "#e5e7eb";
-  if (count <= 3) return "#dcfce7";
-  if (count <= 7) return "#34d399";
-  return "#059669";
+export function getColorValue(count: number, thresholds?: Partial<IntensityThresholds>): string {
+  const level = getIntensityLevel(count, thresholds);
+  if (level === "none") return "#e5e7eb";
+  if (level === "light") return "#dcfce7";
+  if (level === "medium") return "#34d399";
+  if (level === "high") return "#059669";
+  return "#065f46";
 }
 
 /**
@@ -107,9 +105,9 @@ export function getColorValue(count: number): string {
  * @param count - The number of tasks completed
  * @returns Text color class name ("text-white" or "text-gray-900")
  */
-export function getTextColorClass(count: number): string {
-  // Only the darkest intensity needs white text for contrast
-  if (count >= 7) {
+export function getTextColorClass(count: number, thresholds?: Partial<IntensityThresholds>): string {
+  const level = getIntensityLevel(count, thresholds);
+  if (level === "high" || level === "peak") {
     return "text-white";
   }
   return "text-gray-900";

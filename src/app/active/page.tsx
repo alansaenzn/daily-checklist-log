@@ -26,7 +26,7 @@ export default async function ActivePage() {
   const { data: templates, error: tErr } = await supabase
     .from("task_templates")
     .select(
-      "id,title,category,is_active,task_type,archived_at,notes,details,due_date,due_time,list_name,project_id,priority,created_at"
+      "id,title,category,is_active,task_type,archived_at,notes,details,due_date,due_time,list_name,project_id,priority,created_at,difficulty"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
@@ -95,6 +95,7 @@ export default async function ActivePage() {
     list_name: t.list_name ?? null,
     project_id: t.project_id ?? null,
     priority: t.priority ?? null,
+    difficulty: (t as any).difficulty ?? null,
     created_at: t.created_at ?? null,
   }));
 

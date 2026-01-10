@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { toggleTaskForToday } from "../actions/tasks";
 import { type TaskType } from "@/lib/task-types";
 import { TaskDetailsPreview } from "@/components/TaskDetailsPreview";
+import { PriorityConfig } from "@/lib/priority-utils";
 
 type Item = {
   id: string;
@@ -19,6 +20,7 @@ type Item = {
   list_name?: string | null;
   project_id?: string | null;
   priority?: string | null;
+  difficulty?: number | null;
   created_at?: string | null;
 };
 
@@ -306,19 +308,18 @@ export default function TodayChecklist({
 }
 
 function ProgressBar({ percent }: { percent: number }) {
+  const safePercent = Number.isFinite(percent) ? percent : 0;
+  const clampedPercent = Math.max(0, Math.min(100, Math.round(safePercent)));
+
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-        <div
-          className="h-full bg-blue-500 dark:bg-blue-400 transition-all"
-          style={{ width: `${percent}%` }}
-          role="progressbar"
-          aria-valuenow={percent}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
-      </div>
-      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{percent}%</span>
+      <progress
+        className="today-progress flex-1"
+        value={clampedPercent}
+        max={100}
+        aria-label="Today progress"
+      />
+      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{clampedPercent}%</span>
     </div>
   );
 }
@@ -515,7 +516,26 @@ function TaskCard({
   onToggle: () => void;
   isPending: boolean;
 }) {
-  const typeLabel = item.task_type === "one_off" ? "One-off" : null;
+  const priorityLevel = (item.priority || "none").toLowerCase() as keyof typeof PriorityConfig;
+  const priorityConfig = PriorityConfig[priorityLevel] || PriorityConfig.none;
+  const priorityBadgeLabel = priorityConfig.label;
+
+  const formattedDueDate = (() => {
+    if (!item.due_date) return null;
+    const parsed = new Date(item.due_date);
+    if (Number.isNaN(parsed.getTime())) return item.due_date;
+    return parsed.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  })();
+
+  const scheduleParts: string[] = [];
+  if (formattedDueDate) scheduleParts.push(formattedDueDate);
+  if (item.due_time) scheduleParts.push(item.due_time);
+  if (item.task_type === "recurring") scheduleParts.push("Repeats");
+  const hasSchedule = scheduleParts.length > 0;
 
   return (
     <li className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
@@ -532,8 +552,9 @@ function TaskCard({
           type="button"
           className={`btn-plain flex-1 text-left min-w-0 ${hasDetails ? "" : "cursor-default"}`}
           onClick={() => (hasDetails ? onToggleDetails() : undefined)}
-          aria-expanded={hasDetails ? isExpanded : undefined}
-          aria-controls={hasDetails ? `active-task-details-${item.id}` : undefined}
+          {...(hasDetails
+            ? { "aria-expanded": isExpanded, "aria-controls": `active-task-details-${item.id}` }
+            : {})}
         >
           <div className="flex items-center gap-2 flex-wrap">
             <span
@@ -547,24 +568,15 @@ function TaskCard({
             <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 whitespace-normal break-words">
               {item.title}
             </h3>
-            {typeLabel && (
-              <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-200">
-                {typeLabel}
-              </span>
-            )}
           </div>
           <div className="mt-1 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 flex-wrap">
+            {/* Category */}
             <span className="font-medium text-slate-800 dark:text-slate-100">{item.category}</span>
-            {projectName && (
+            {/* Top-line Due text */}
+            {formattedDueDate && (
               <>
                 <span className="text-slate-400 dark:text-slate-500">•</span>
-                <span>{projectName}</span>
-              </>
-            )}
-            {item.due_date && (
-              <>
-                <span className="text-slate-400 dark:text-slate-500">•</span>
-                <span className="text-slate-500 dark:text-slate-400">{item.due_date}</span>
+                <span className="text-slate-700 dark:text-slate-300">{`Due ${formattedDueDate}`}</span>
               </>
             )}
           </div>
@@ -574,7 +586,7 @@ function TaskCard({
           type="button"
           onClick={onToggle}
           disabled={isPending || item.checked}
-          aria-pressed={item.checked}
+          aria-pressed={item.checked ? "true" : "false"}
           className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-colors ${
             item.checked
               ? "border-blue-600 bg-blue-600 text-white"
@@ -597,6 +609,8 @@ function TaskCard({
           notes={item.notes || null}
           details={item.details || null}
           tags={item.list_name ? [item.list_name] : undefined}
+          priorityLabel={priorityBadgeLabel !== "None" ? priorityBadgeLabel : undefined}
+          difficultyLevel={typeof item.difficulty === "number" ? Math.max(1, Math.min(5, Math.floor(item.difficulty))) : undefined}
         />
       )}
     </li>

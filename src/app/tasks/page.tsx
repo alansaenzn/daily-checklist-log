@@ -2,6 +2,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TasksView } from "@/components/TasksView";
 import type { GoalTemplate } from "@/lib/task-types";
+import { UserSettingsProvider } from "@/components/UserSettingsProvider";
+import { fetchUserSettings } from "@/lib/user-settings";
 
 async function getGoalTemplates(): Promise<GoalTemplate[]> {
   const supabase = supabaseServer();
@@ -34,6 +36,7 @@ export default async function TasksPage() {
   const supabase = supabaseServer();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user!;
+  const settings = await fetchUserSettings(supabase, user.id);
 
   // Fetch task templates for Active tab (exclude archived tasks)
   const { data: templates, error } = await supabase
@@ -64,12 +67,18 @@ export default async function TasksPage() {
   const goalTemplates = await getGoalTemplates();
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-6 min-h-screen">
-      <TasksView
-        taskTemplates={templates || []}
-        categories={categories}
-        templates={goalTemplates}
-      />
-    </main>
+    <UserSettingsProvider
+      initialSettings={settings}
+      userEmail={user.email ?? null}
+      userId={user.id}
+    >
+      <main className="mx-auto max-w-xl px-4 py-6 min-h-screen">
+        <TasksView
+          taskTemplates={templates || []}
+          categories={categories}
+          templates={goalTemplates}
+        />
+      </main>
+    </UserSettingsProvider>
   );
 }
