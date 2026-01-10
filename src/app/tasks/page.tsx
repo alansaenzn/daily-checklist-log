@@ -2,19 +2,18 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { TasksView } from "@/components/TasksView";
 import type { GoalTemplate } from "@/lib/task-types";
+import { UserSettingsProvider } from "@/components/UserSettingsProvider";
+import { fetchUserSettings } from "@/lib/user-settings";
+import { requireAuth } from "@/lib/auth";
 
 async function getGoalTemplates(): Promise<GoalTemplate[]> {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-
-  if (userErr || !userData.user) {
-    redirect("/login");
-  }
 
   const { data, error } = await supabase
     .from("goal_templates")
     .select("*")
-    .or(`is_system.eq.true,created_by.eq.${userData.user.id}`)
+    .or(`is_system.eq.true,created_by.eq.${user.id}`)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -31,9 +30,9 @@ export const metadata = {
 };
 
 export default async function TasksPage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user!;
+  const settings = await fetchUserSettings(supabase, user.id);
 
   // Fetch task templates for Active tab (exclude archived tasks)
   const { data: templates, error } = await supabase
@@ -64,12 +63,18 @@ export default async function TasksPage() {
   const goalTemplates = await getGoalTemplates();
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-6 min-h-screen">
-      <TasksView
-        taskTemplates={templates || []}
-        categories={categories}
-        templates={goalTemplates}
-      />
-    </main>
+    <UserSettingsProvider
+      initialSettings={settings}
+      userEmail={user.email ?? null}
+      userId={user.id}
+    >
+      <main className="mx-auto max-w-xl px-4 py-6 min-h-screen">
+        <TasksView
+          taskTemplates={templates || []}
+          categories={categories}
+          templates={goalTemplates}
+        />
+      </main>
+    </UserSettingsProvider>
   );
 }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { MomentumSettingsProvider } from "@/components/MomentumSettingsProvider";
-import { fetchUserMomentumThreshold } from "@/lib/user-settings";
+import { UserSettingsProvider } from "@/components/UserSettingsProvider";
+import { fetchUserSettings } from "@/lib/user-settings";
 
 export default async function DashboardLayout({
   children,
@@ -15,14 +15,15 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const momentumThreshold = await fetchUserMomentumThreshold(
-    supabase,
-    userData.user.id
-  );
+  const settings = await fetchUserSettings(supabase, userData.user.id);
 
   return (
-    <MomentumSettingsProvider initialMomentumThreshold={momentumThreshold}>
+    <UserSettingsProvider
+      initialSettings={settings}
+      userEmail={userData.user.email ?? null}
+      userId={userData.user.id}
+    >
       <main className="mx-auto max-w-xl px-4 py-6 min-h-screen">{children}</main>
-    </MomentumSettingsProvider>
+    </UserSettingsProvider>
   );
 }

@@ -15,6 +15,7 @@ interface TaskDetailsPreviewProps {
   details?: string | null;
   tags?: string[] | null;
   priorityLabel?: string | null;
+  difficultyLevel?: number | null;
 }
 
 function formatDueDate(dueDate?: string | null) {
@@ -40,6 +41,7 @@ export function TaskDetailsPreview({
   details,
   tags,
   priorityLabel,
+  difficultyLevel,
 }: TaskDetailsPreviewProps) {
   const formattedDueDate = formatDueDate(dueDate);
 
@@ -48,7 +50,7 @@ export function TaskDetailsPreview({
   if (dueTime) scheduleParts.push(dueTime);
   if (taskType === "recurring") scheduleParts.push("Repeats");
 
-  const hasMetaRow = Boolean(projectName || category || priorityLabel || scheduleParts.length > 0 || (tags && tags.length));
+  const hasMetaRow = Boolean(projectName || category || (tags && tags.length));
   const hasBody = Boolean(notes || details);
   const hasContent = hasMetaRow || hasBody;
 
@@ -65,33 +67,61 @@ export function TaskDetailsPreview({
       {hasContent && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/70 p-3 sm:p-4 space-y-3">
           {hasMetaRow && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {projectName && (
-                <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Project</p>
-                  <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{projectName}</p>
-                </div>
-              )}
+            <div className="space-y-3">
               {category && (
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Category</p>
                   <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{category}</p>
                 </div>
               )}
-              {priorityLabel && (
-                <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</p>
-                  <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{priorityLabel}</p>
+
+              {/* Pill row: Priority, Difficulty */}
+              {(priorityLabel || typeof difficultyLevel === "number") && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {priorityLabel && (
+                    <>
+                      <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Priority</span>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
+                        {priorityLabel}
+                      </span>
+                    </>
+                  )}
+                  {typeof difficultyLevel === "number" && (() => {
+                    const level = Math.max(1, Math.min(5, Math.floor(difficultyLevel)));
+                    const label = level <= 2 ? "Easy" : level === 3 ? "Medium" : level === 4 ? "Hard" : "Very Hard";
+                    const cls = level <= 2
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200"
+                      : level === 3
+                        ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200"
+                        : level === 4
+                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200"
+                          : "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200";
+                    return (
+                      <>
+                        <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Activity level</span>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
+                          {label}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
-              {scheduleParts.length > 0 && (
+
+              {/* Due date as simple text */}
+              {formattedDueDate && (
+                <p className="text-sm text-gray-700 dark:text-gray-300">Due {formattedDueDate}</p>
+              )}
+
+              {projectName && (
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Schedule</p>
-                  <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{scheduleParts.join(" • ")}</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Project</p>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 truncate">{projectName}</p>
                 </div>
               )}
+
               {tags && tags.length > 0 && (
-                <div className="space-y-1 sm:col-span-2">
+                <div className="space-y-1">
                   <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Tags</p>
                   <div className="flex flex-wrap gap-2">
                     {tags.map((tag) => (

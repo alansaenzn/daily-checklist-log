@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/auth";
 
 type LogRow = {
   log_date: string;
@@ -8,9 +9,8 @@ type LogRow = {
 };
 
 export default async function HistoryPage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user!;
 
   const since = new Date();
   since.setDate(since.getDate() - 30);

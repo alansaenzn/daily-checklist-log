@@ -19,6 +19,7 @@ interface CalendarViewSwitcherProps {
   data: Record<string, number>;
   dailyData: Record<string, { title: string; category: string; completed_at: string | null; isScheduled?: boolean }[]>;
   scheduledData?: Record<string, number>; // Count of scheduled tasks by date
+  intensityThresholds?: import("@/lib/user-settings").IntensityThresholds;
   renderDaily?: () => React.ReactNode;
   showTabs?: boolean;
 }
@@ -37,6 +38,7 @@ export default function CalendarViewSwitcher({
   data,
   dailyData,
   scheduledData = {},
+  intensityThresholds,
   renderDaily,
   showTabs = true,
 }: CalendarViewSwitcherProps) {
@@ -120,6 +122,7 @@ export default function CalendarViewSwitcher({
           <WeeklyHeatmap
             weekStart={weekStart}
             data={data}
+            intensityThresholds={intensityThresholds}
             onDayClick={(date) => handleDayClick(date)}
           />
         )}
@@ -131,6 +134,7 @@ export default function CalendarViewSwitcher({
             dailyData={dailyData}
             scheduledData={scheduledData}
             criticalMissByDate={criticalMissByDate}
+            intensityThresholds={intensityThresholds}
             onDayClick={(date) => handleDayClick(date)}
           />
         )}
@@ -139,6 +143,7 @@ export default function CalendarViewSwitcher({
           <YearlyHeatmap
             year={year}
             data={data}
+            intensityThresholds={intensityThresholds}
             onDayClick={(date) => handleDayClick(date)}
           />
         )}

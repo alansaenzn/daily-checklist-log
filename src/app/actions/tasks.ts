@@ -2,6 +2,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { formatLocalDate } from "@/lib/local-date";
 import { TaskBehavior, TaskValidation, type TaskType, type TaskPriority, TASK_PRIORITY_LEVELS } from "@/lib/task-types";
+import { fetchUserSettings } from "@/lib/user-settings";
 
 export async function updateTaskTemplate(
   taskTemplateId: string,
@@ -57,14 +58,6 @@ export async function createTaskTemplate(formData: FormData) {
   const category = String(formData.get("category") || "General").trim();
   const taskType = String(formData.get("task_type") || "recurring") as TaskType;
 
-  // Difficulty (1-5). Defaults to 3.
-  const difficultyRaw = formData.get("difficulty");
-  const difficultyParsed = Number(difficultyRaw);
-  const difficulty =
-    Number.isFinite(difficultyParsed) && difficultyParsed >= 1 && difficultyParsed <= 5
-      ? Math.floor(difficultyParsed)
-      : 3;
-
   // Optional extended fields
   const notes = formData.get("notes") ? String(formData.get("notes")).trim() : null;
   const url = formData.get("url") ? String(formData.get("url")).trim() : null;
@@ -73,11 +66,8 @@ export async function createTaskTemplate(formData: FormData) {
   const list_name = formData.get("list_name") ? String(formData.get("list_name")).trim() : null;
   const details = formData.get("details") ? String(formData.get("details")).trim() : null;
   
-  // Priority level (defaults to "none" if not provided)
-  const priorityValue = formData.get("priority") ? String(formData.get("priority")).trim() : "none";
-  const priority = TASK_PRIORITY_LEVELS.includes(priorityValue as TaskPriority) 
-    ? (priorityValue as TaskPriority) 
-    : "none";
+  // Priority level (defaults to user settings if not provided)
+  const priorityValue = formData.get("priority") ? String(formData.get("priority")).trim() : null;
   
   // Project selection (empty string or null = Inbox, UUID = specific project)
   const project_id = formData.get("project_id") ? String(formData.get("project_id")).trim() : null;
@@ -108,6 +98,19 @@ export async function createTaskTemplate(formData: FormData) {
   const supabase = supabaseServer();
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr || !userData.user) throw new Error("Not authenticated");
+  const userSettings = await fetchUserSettings(supabase, userData.user.id);
+
+  // Difficulty (1-5). Defaults to user settings.
+  const difficultyRaw = formData.get("difficulty");
+  const difficultyParsed = Number(difficultyRaw);
+  const difficulty =
+    Number.isFinite(difficultyParsed) && difficultyParsed >= 1 && difficultyParsed <= 5
+      ? Math.floor(difficultyParsed)
+      : userSettings.defaultDifficulty;
+
+  const priority = priorityValue && TASK_PRIORITY_LEVELS.includes(priorityValue as TaskPriority)
+    ? (priorityValue as TaskPriority)
+    : userSettings.defaultPriority;
 
   const { error } = await supabase.from("task_templates").insert({
     user_id: userData.user.id,

@@ -9,8 +9,8 @@
 
 import { useEffect, useState } from "react";
 import { createProject, updateProject, deleteProject } from "../app/actions/projects";
-import { getProjectTasks } from "../app/actions/project-tasks";
-import { createTaskTemplate } from "../app/actions/tasks";
+import { getProjectTasks, getUnassignedTasks } from "../app/actions/project-tasks";
+import { createTaskTemplate, updateTaskTemplate } from "../app/actions/tasks";
 import { TaskRowDisplay, type TaskData } from "./TaskRowDisplay";
 import { useRouter } from "next/navigation";
 import TaskRow from "@/app/tasks/TaskRow";
@@ -332,6 +332,10 @@ function ProjectAccordion({
   const [sortMode, setSortMode] = useState<SortMode>("title");
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [availableExisting, setAvailableExisting] = useState<TaskData[]>([]);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
+  const [selectedExistingId, setSelectedExistingId] = useState("");
   type DifficultyFilter = "all" | 1 | 2 | 3 | 4 | 5;
   type TypeFilter = "all" | "recurring" | "one_off";
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
@@ -349,6 +353,25 @@ function ProjectAccordion({
       setDescription(project.description || "");
     }
   }, [project.name, project.description, isEditing]);
+
+  // Load unassigned tasks when expanded so user can attach existing activities
+  useEffect(() => {
+    const loadExisting = async () => {
+      try {
+        setIsLoadingExisting(true);
+        const list = await getUnassignedTasks();
+        setAvailableExisting(list);
+      } catch (err) {
+        console.error("Failed to load unassigned tasks", err);
+      } finally {
+        setIsLoadingExisting(false);
+      }
+    };
+
+    if (isExpanded && availableExisting.length === 0 && !isLoadingExisting) {
+      loadExisting();
+    }
+  }, [isExpanded, availableExisting.length, isLoadingExisting]);
 
   const getPriorityRank = (priority: string | null | undefined) => {
     switch ((priority || "none").toLowerCase()) {
@@ -435,6 +458,21 @@ function ProjectAccordion({
       await onDelete();
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAttachExisting = async (taskId: string) => {
+    if (!taskId) return;
+    setIsAttaching(true);
+    try {
+      await updateTaskTemplate(taskId, { project_id: project.id });
+      setAvailableExisting((prev) => prev.filter((t) => t.id !== taskId));
+      setSelectedExistingId("");
+      await onTasksChanged();
+    } catch (err) {
+      console.error("Failed to attach existing task", err);
+    } finally {
+      setIsAttaching(false);
     }
   };
 
@@ -726,6 +764,30 @@ function ProjectAccordion({
                     {isAdding ? "Adding..." : "Add Task"}
                   </button>
                 </form>
+                <div className="mt-3 flex items-center gap-2 flex-wrap justify-center">
+                  <select
+                    value={selectedExistingId}
+                    onChange={(e) => setSelectedExistingId(e.target.value)}
+                    disabled={isLoadingExisting || availableExisting.length === 0 || isAttaching}
+                    className="min-w-[240px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    aria-label="Select existing activity to add"
+                  >
+                    <option value="">{isLoadingExisting ? "Loading activities..." : availableExisting.length === 0 ? "No unassigned activities" : "Select an existing activity"}</option>
+                    {availableExisting.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleAttachExisting(selectedExistingId)}
+                    disabled={!selectedExistingId || isAttaching}
+                    className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAttaching ? "Adding..." : "Add existing"}
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -769,6 +831,30 @@ function ProjectAccordion({
                     {isAdding ? "Adding..." : "Add Task"}
                   </button>
                 </form>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={selectedExistingId}
+                  onChange={(e) => setSelectedExistingId(e.target.value)}
+                  disabled={isLoadingExisting || availableExisting.length === 0 || isAttaching}
+                  className="min-w-[240px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  aria-label="Select existing activity to add"
+                >
+                  <option value="">{isLoadingExisting ? "Loading activities..." : availableExisting.length === 0 ? "No unassigned activities" : "Select an existing activity"}</option>
+                  {availableExisting.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handleAttachExisting(selectedExistingId)}
+                  disabled={!selectedExistingId || isAttaching}
+                  className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAttaching ? "Adding..." : "Add existing"}
+                </button>
               </div>
               {sortedTasks.map((task) => (
                 <TaskRowDisplay

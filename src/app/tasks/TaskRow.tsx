@@ -523,16 +523,16 @@ export default function TaskRow({
                 type="button"
                 onClick={handleToggleExpand}
                 disabled={!hasPreviewContent || pending}
-                className={`flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
                   !hasPreviewContent ? "opacity-60 cursor-default" : ""
                 }`}
                 title={hasPreviewContent ? "Show task context" : "No extra context"}
               >
                 <span
-                  className={`text-lg transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+                  className={`text-base transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
                   aria-hidden
                 >
-                  ▶
+                  ›
                 </span>
                 <span className="sr-only">Toggle task details</span>
               </button>

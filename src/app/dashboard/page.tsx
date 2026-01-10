@@ -12,6 +12,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { DashboardView } from "@/components/DashboardView";
 import type { ScheduledTask, TimelineSourceTask } from "@/components/CalendarTabView";
 import { getProjectsWithCounts } from "@/app/actions/projects";
+import { requireAuth } from "@/lib/auth";
 
 const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
@@ -127,14 +128,8 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-  const { data: userData } = await supabase.auth.getUser();
-
-  if (!userData.user) {
-    redirect("/login");
-  }
-
-  const user = userData.user;
 
   // Fetch heatmap data for the current month
   const today = new Date();

@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 import { formatDateKey } from "@/lib/heatmap-date-utils";
+import { getIntensityLevel } from "@/lib/heatmap-color-utils";
+import type { IntensityThresholds } from "@/lib/user-settings";
 
 interface WeeklyHeatmapProps {
   /** Start date of the week (Monday) */
@@ -9,6 +11,7 @@ interface WeeklyHeatmapProps {
   data: Record<string, number>;
   /** Optional callback when a day is clicked */
   onDayClick?: (date: Date, count: number) => void;
+  intensityThresholds?: IntensityThresholds;
 }
 
 const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -59,7 +62,18 @@ const arrowForDirection = (dir: "up" | "down" | "flat") => {
   return "";
 };
 
-const activityLevelForCounts = (count: number, weekMax: number): ActivityLevel => {
+const activityLevelForCounts = (
+  count: number,
+  weekMax: number,
+  thresholds?: IntensityThresholds
+): ActivityLevel => {
+  if (thresholds) {
+    const level = getIntensityLevel(count, thresholds);
+    if (level === "peak") return "Peak";
+    if (level === "high") return "High";
+    if (level === "medium") return "Medium";
+    return "Low";
+  }
   if (weekMax <= 0) return "Low";
   if (count <= 0) return "Low";
   if (count === weekMax) return "Peak";
@@ -88,7 +102,12 @@ const activityPillClasses = (level: ActivityLevel) => {
  * Displays 7 consecutive days with larger cells and more detailed information.
  * Useful for viewing a specific week's completion pattern.
  */
-export const WeeklyHeatmap: React.FC<WeeklyHeatmapProps> = ({ weekStart, data, onDayClick }) => {
+export const WeeklyHeatmap: React.FC<WeeklyHeatmapProps> = ({
+  weekStart,
+  data,
+  onDayClick,
+  intensityThresholds,
+}) => {
   const { days, totalThisWeek, totalPrevWeek, hasPrevWeekData, weekMax } = useMemo(() => {
     const currentDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
     const prevDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i - 7));
@@ -176,7 +195,7 @@ export const WeeklyHeatmap: React.FC<WeeklyHeatmapProps> = ({ weekStart, data, o
 
           const dayName = WEEKDAY_NAMES[dayIdx];
           const shortDate = formatShort(date);
-          const activity = activityLevelForCounts(count, weekMax);
+          const activity = activityLevelForCounts(count, weekMax, intensityThresholds);
 
           return (
             <button

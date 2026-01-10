@@ -8,6 +8,7 @@
  */
 
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase/server";
 import { TemplatesView } from "@/components/TemplatesView";
 import type { GoalTemplate } from "@/lib/task-types";
@@ -47,6 +48,7 @@ async function getInitialTemplates(): Promise<GoalTemplate[]> {
 }
 
 export default async function TemplatesPage() {
+  await requireAuth();
   const templates = await getInitialTemplates();
 
   return (

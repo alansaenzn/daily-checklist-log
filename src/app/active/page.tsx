@@ -7,6 +7,9 @@
 
 import { supabaseServer } from "@/lib/supabase/server";
 import TodayChecklist from "../today/today-checklist";
+import { UserSettingsProvider } from "@/components/UserSettingsProvider";
+import { requireAuth } from "@/lib/auth";
+import { fetchUserSettings } from "@/lib/user-settings";
 import { formatLocalDate } from "@/lib/local-date";
 import { TaskBehavior, type TaskType } from "@/lib/task-types";
 
@@ -16,17 +19,15 @@ export const metadata = {
 };
 
 export default async function ActivePage() {
+  const user = await requireAuth();
   const supabase = supabaseServer();
-
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user!;
   const today = formatLocalDate();
 
   // Fetch all task templates with task_type (default to "recurring" for backward compatibility)
   const { data: templates, error: tErr } = await supabase
     .from("task_templates")
     .select(
-      "id,title,category,is_active,task_type,archived_at,notes,details,due_date,due_time,list_name,project_id,priority,created_at"
+      "id,title,category,is_active,task_type,archived_at,notes,details,due_date,due_time,list_name,project_id,priority,created_at,difficulty"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
@@ -95,12 +96,17 @@ export default async function ActivePage() {
     list_name: t.list_name ?? null,
     project_id: t.project_id ?? null,
     priority: t.priority ?? null,
+    difficulty: (t as any).difficulty ?? null,
     created_at: t.created_at ?? null,
   }));
 
+  const settings = await fetchUserSettings(supabase, user.id);
+
   return (
-    <main className="mx-auto max-w-xl px-4 py-6 space-y-6 min-h-screen">
-      <TodayChecklist initialItems={items} projectLookup={projectLookup} />
-    </main>
+    <UserSettingsProvider initialSettings={settings} userEmail={user.email ?? null} userId={user.id}>
+      <main className="mx-auto max-w-xl px-4 py-6 space-y-6 min-h-screen">
+        <TodayChecklist initialItems={items} projectLookup={projectLookup} />
+      </main>
+    </UserSettingsProvider>
   );
 }
