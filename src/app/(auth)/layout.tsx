@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import BottomNav from "@/components/BottomNav";
-import "./globals.css";
+import "../globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Checklist Log",
-  description: "Daily task tracking and goal templates",
+  title: "Auth | Checklist Log",
+  description: "Authentication flow",
   viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
 };
 
-export default function RootLayout({
+export default function AuthLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -29,12 +28,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-950 text-gray-900 dark:text-white`}
       >
-        {/* Main content with bottom padding for fixed nav */}
-        <div className="pb-20">
-          {children}
-        </div>
-        {/* Fixed bottom navigation (hidden on auth routes via BottomNav component) */}
-        <BottomNav />
+        {/* Auth pages render full-screen without bottom navigation */}
+        <div className="min-h-screen">{children}</div>
       </body>
     </html>
   );

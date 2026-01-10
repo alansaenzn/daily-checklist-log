@@ -24,17 +24,46 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic =
-    path.startsWith("/login") || path.startsWith("/auth/callback");
+    path.startsWith("/sign-in") ||
+    path.startsWith("/auth/") ||
+    path === "/auth";
+
+  // If authenticated, check onboarding status and gate routes
+  if (isAuthed) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", data.user!.id)
+        .single();
+
+      const needsOnboarding = profile && profile.onboarding_completed === false;
+
+      if (needsOnboarding && !path.startsWith("/onboarding")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding";
+        return NextResponse.redirect(url);
+      }
+
+      if (!needsOnboarding && path.startsWith("/onboarding")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+    } catch (_) {
+      // If profile read fails, default to allowing route; RLS may handle later
+    }
+  }
 
   if (!isAuthed && !isPublic) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/sign-in";
     return NextResponse.redirect(url);
   }
 
   if (isAuthed && path === "/") {
     const url = request.nextUrl.clone();
-    url.pathname = "/today";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
