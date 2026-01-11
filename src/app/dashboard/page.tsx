@@ -25,7 +25,7 @@ const fetchAggregatedData = async (
   userId: string,
   startDate: string,
   endDate: string
-): Promise<{ countByDate: Record<string, number>; difficultySumByDate: Record<string, number> }> => {
+): Promise<{ countByDate: Record<string, number>; difficultySumByDate: Record<string, number>; completedByDate: Record<string, number[]> }> => {
   type AggregatedLogRow = {
     log_date: string;
     completed: boolean;
@@ -44,6 +44,8 @@ const fetchAggregatedData = async (
 
   const completedCountByDate: Record<string, number> = {};
   const difficultySumByDate: Record<string, number> = {};
+  const completedByDate: Record<string, number[]> = {};
+  
   (logs as unknown as AggregatedLogRow[] | null ?? []).forEach((log) => {
     if (!log.completed) return;
     const date = log.log_date as string;
@@ -55,9 +57,14 @@ const fetchAggregatedData = async (
         ? Math.floor(difficultyRaw)
         : 3;
     difficultySumByDate[date] = (difficultySumByDate[date] || 0) + difficulty;
+    
+    if (!completedByDate[date]) {
+      completedByDate[date] = [];
+    }
+    completedByDate[date].push(difficulty);
   });
 
-  return { countByDate: completedCountByDate, difficultySumByDate };
+  return { countByDate: completedCountByDate, difficultySumByDate, completedByDate };
 };
 
 /**
@@ -121,6 +128,45 @@ async function fetchTimelineTasks(
   return filtered as TimelineSourceTask[];
 }
 
+/**
+ * Fetch scheduled task difficulties for the last 7 days
+ */
+async function fetchScheduledTasksByDate(
+  supabase: ReturnType<typeof supabaseServer>,
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<Record<string, number[]>> {
+  const { data, error } = await supabase
+    .from("task_templates")
+    .select("id,due_date,difficulty")
+    .eq("user_id", userId)
+    .not("due_date", "is", null)
+    .gte("due_date", startDate)
+    .lte("due_date", endDate);
+
+  if (error) {
+    console.error("Failed to fetch scheduled tasks by date:", error.message);
+    return {};
+  }
+
+  const scheduledByDate: Record<string, number[]> = {};
+  (data || []).forEach((task) => {
+    const date = task.due_date as string;
+    const difficulty =
+      typeof task.difficulty === "number" && task.difficulty >= 1 && task.difficulty <= 5
+        ? Math.floor(task.difficulty)
+        : 3;
+
+    if (!scheduledByDate[date]) {
+      scheduledByDate[date] = [];
+    }
+    scheduledByDate[date].push(difficulty);
+  });
+
+  return scheduledByDate;
+}
+
 export const metadata = {
   title: "Dashboard",
   description: "Your momentum snapshot, scheduled tasks, and projects",
@@ -149,6 +195,8 @@ export default async function DashboardPage() {
 
   let heatmapData: Record<string, number> = {};
   let difficultySumByDate: Record<string, number> = {};
+  let completedByDate: Record<string, number[]> = {};
+  
   try {
     const aggregated = await fetchAggregatedData(
       supabase,
@@ -158,8 +206,27 @@ export default async function DashboardPage() {
     );
     heatmapData = aggregated.countByDate;
     difficultySumByDate = aggregated.difficultySumByDate;
+    completedByDate = aggregated.completedByDate;
   } catch (error) {
     console.error("Failed to fetch heatmap data:", error);
+  }
+
+  // Fetch last 7 days of scheduled task difficulties for system health
+  const last7Start = new Date(today);
+  last7Start.setDate(today.getDate() - 6);
+  const last7StartISO = formatDateKey(last7Start);
+  const last7EndISO = formatDateKey(today);
+
+  let scheduledByDate: Record<string, number[]> = {};
+  try {
+    scheduledByDate = await fetchScheduledTasksByDate(
+      supabase,
+      user.id,
+      last7StartISO,
+      last7EndISO
+    );
+  } catch (error) {
+    console.error("Failed to fetch scheduled tasks for system health:", error);
   }
 
   // Fetch scheduled tasks for Calendar tab
@@ -205,6 +272,8 @@ export default async function DashboardPage() {
       scheduledTasks={scheduledTasks}
       timelineTasks={timelineTasks}
       projects={projects}
+      momentumCompletedByDate={completedByDate}
+      momentumScheduledByDate={scheduledByDate}
     />
   );
 }

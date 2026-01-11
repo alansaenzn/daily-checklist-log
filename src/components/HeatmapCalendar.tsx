@@ -46,18 +46,18 @@ export const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
   const matrix = getMonthMatrix(year, month);
 
   return (
-    <div className="inline-block">
-      <div className="grid grid-cols-7 border-b bg-zinc-50 text-xs font-medium text-zinc-600">
+    <div className="inline-block min-w-full">
+      <div className="grid grid-cols-7 border-b bg-zinc-50 text-[10px] md:text-xs font-medium text-zinc-600">
         {weekdayLabels.map((label) => (
-          <div key={label} className="px-2 py-1 text-center">
+          <div key={label} className="px-0.5 md:px-2 py-0.5 md:py-1 text-center">
             {label}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 gap-0.5 md:gap-0">
         {matrix.map((date, idx) => {
           if (!date) {
-            return <div key={idx} className="h-8 w-8 bg-transparent" />;
+            return <div key={idx} className="h-6 md:h-8 w-6 md:w-8 bg-transparent" />;
           }
           const count = data[date] || 0;
           const colorClass =
@@ -67,11 +67,11 @@ export const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
           return (
             <div
               key={date}
-              className={`heatmap-cell relative group h-8 w-8 flex items-center justify-center rounded ${colorClass} transition-colors duration-200`}
+              className={`heatmap-cell relative group h-6 md:h-8 w-6 md:w-8 flex items-center justify-center rounded text-[8px] md:text-xs ${colorClass} transition-colors duration-200`}
             >
               <span className="sr-only">{date}: {count} completed</span>
               {/* Tooltip */}
-              <div className="absolute z-10 hidden group-hover:flex flex-col items-center left-1/2 top-10 -translate-x-1/2">
+              <div className="absolute z-10 hidden group-hover:flex flex-col items-center left-1/2 top-8 -translate-x-1/2">
                 <div className="rounded bg-zinc-900 text-white text-xs px-2 py-1 shadow-lg whitespace-nowrap">
                   <div>{date}</div>
                   <div>{count} completed</div>

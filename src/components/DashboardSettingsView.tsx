@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React from "react";
 import { useUserSettings } from "@/components/UserSettingsProvider";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Toggle } from "@/components/settings/Toggle";
 import { Slider } from "@/components/settings/Slider";
 import { ThresholdEditor } from "@/components/settings/ThresholdEditor";
@@ -119,6 +120,17 @@ export function DashboardSettingsView() {
       setToast({ tone: "error", message });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = supabaseBrowser();
+      await supabase.auth.signOut();
+      window.location.href = "/sign-in";
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sign out failed.";
+      setToast({ tone: "error", message });
     }
   };
 
@@ -408,6 +420,15 @@ export function DashboardSettingsView() {
             >
               Delete Account
             </button>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="w-full rounded-full border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </section>
       </div>

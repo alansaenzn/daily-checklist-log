@@ -10,24 +10,8 @@ export default function SignInPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let active = true;
-
-    (async () => {
-      // Clear any existing session so a new email logs into a fresh account
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!active) return;
-
-      if (user) {
-        await supabase.auth.signOut();
-      }
-
-      if (active) setReady(true);
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [supabase]);
+    setReady(true);
+  }, []);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();

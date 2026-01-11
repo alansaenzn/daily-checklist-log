@@ -88,8 +88,8 @@ export function KeyMetricsCarousel({
   }, [data, difficultySumData, year, month, intensityPeak, rangeMode]);
 
   return (
-    <div className="mt-4 -mx-2 px-2">
-      <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1">
+    <div className="mt-2 md:mt-4 -mx-1 md:-mx-2 px-1 md:px-2">
+      <div className="flex gap-2 md:gap-3 overflow-x-auto snap-x snap-mandatory pb-1">
         <MetricCard
           emoji="🔥"
           title="Current Streak"
@@ -128,16 +128,16 @@ function MetricCard({
   subtitle?: string;
 }) {
   return (
-    <div className="snap-start shrink-0 w-[220px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+    <div className="snap-start shrink-0 w-[160px] md:w-[220px] rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 md:p-4">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-base">{emoji}</span>
-        <h4 className="text-xs font-bold uppercase text-gray-900 dark:text-white tracking-wide">
+        <span className="text-sm md:text-base">{emoji}</span>
+        <h4 className="text-[9px] md:text-xs font-bold uppercase text-gray-900 dark:text-white tracking-wide">
           {title}
         </h4>
       </div>
-      <div className="text-2xl font-extrabold text-gray-900 dark:text-white">{value}</div>
+      <div className="text-lg md:text-2xl font-extrabold text-gray-900 dark:text-white">{value}</div>
       {subtitle ? (
-        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{subtitle}</div>
+        <div className="text-[9px] md:text-[11px] text-gray-500 dark:text-gray-400 mt-1">{subtitle}</div>
       ) : null}
     </div>
   );

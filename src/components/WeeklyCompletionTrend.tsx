@@ -49,9 +49,9 @@ export default function WeeklyCompletionTrend({ dailyCounts, weeks = 12 }: Weekl
 
   const maxValue = Math.max(1, ...series.map((s) => s.value));
 
-  const width = 320;
-  const height = 120;
-  const padding = { left: 8, right: 8, top: 8, bottom: 16 };
+  const width = typeof window !== 'undefined' && window.innerWidth < 768 ? 280 : 320;
+  const height = 100;
+  const padding = { left: 6, right: 6, top: 8, bottom: 14 };
   const chartW = width - padding.left - padding.right;
   const chartH = height - padding.top - padding.bottom;
 
@@ -72,17 +72,17 @@ export default function WeeklyCompletionTrend({ dailyCounts, weeks = 12 }: Weekl
     .filter(Boolean) as { x: number; label: string }[];
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 md:p-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-lg font-extrabold">This week</h4>
+        <h4 className="text-base md:text-lg font-extrabold">This week</h4>
         <div className="text-right">
-          <div className="text-xs text-gray-500">Completed</div>
-          <div className="text-xl font-bold">{series[series.length - 1]?.value ?? 0}</div>
+          <div className="text-[9px] md:text-xs text-gray-500">Completed</div>
+          <div className="text-lg md:text-xl font-bold">{series[series.length - 1]?.value ?? 0}</div>
         </div>
       </div>
-      <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">Past {weeks} weeks</div>
+      <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1 md:mt-2">Past {weeks} weeks</div>
 
-      <svg width={width} height={height} className="mt-2 block">
+      <svg width={width} height={height} className="mt-2 md:mt-3 block w-full">
         {/* Grid lines */}
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#525252" strokeOpacity="0.4" />
         <line x1={padding.left} y1={padding.top} x2={width - padding.right} y2={padding.top} stroke="#525252" strokeOpacity="0.2" />
@@ -90,18 +90,18 @@ export default function WeeklyCompletionTrend({ dailyCounts, weeks = 12 }: Weekl
         {/* Area fill */}
         <path d={area} fill="#fb923c10" stroke="none" />
         {/* Line */}
-        <path d={path} fill="none" stroke="#f97316" strokeWidth={3} />
+        <path d={path} fill="none" stroke="#f97316" strokeWidth={2} />
         {/* Points */}
         {points.map((p, i) => (
           <g key={i}>
-            <circle cx={p.x} cy={p.y} r={6} fill="#0a0a0a" opacity={0.9} />
-            <circle cx={p.x} cy={p.y} r={5} fill="#f97316" />
+            <circle cx={p.x} cy={p.y} r={4} fill="#0a0a0a" opacity={0.9} />
+            <circle cx={p.x} cy={p.y} r={3} fill="#f97316" />
           </g>
         ))}
 
         {/* Month labels */}
         {monthTicks.map((t, i) => (
-          <text key={`m-${i}`} x={t.x} y={height - 2} textAnchor="middle" fontSize="10" fill="currentColor" className="text-gray-600 dark:text-gray-300">
+          <text key={`m-${i}`} x={t.x} y={height - 2} textAnchor="middle" fontSize="8" fill="currentColor" className="text-gray-600 dark:text-gray-300">
             {t.label.toUpperCase()}
           </text>
         ))}
