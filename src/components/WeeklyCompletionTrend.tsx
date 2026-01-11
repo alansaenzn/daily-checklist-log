@@ -49,7 +49,8 @@ export default function WeeklyCompletionTrend({ dailyCounts, weeks = 12 }: Weekl
 
   const maxValue = Math.max(1, ...series.map((s) => s.value));
 
-  const width = typeof window !== 'undefined' && window.innerWidth < 768 ? 280 : 320;
+  // Fixed desktop width (320px) with CSS scaling for mobile responsiveness
+  const width = 320;
   const height = 100;
   const padding = { left: 6, right: 6, top: 8, bottom: 14 };
   const chartW = width - padding.left - padding.right;
@@ -82,7 +83,7 @@ export default function WeeklyCompletionTrend({ dailyCounts, weeks = 12 }: Weekl
       </div>
       <div className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-1 md:mt-2">Past {weeks} weeks</div>
 
-      <svg width={width} height={height} className="mt-2 md:mt-3 block w-full">
+      <svg width={width} height={height} className="mt-2 md:mt-3 block w-full h-auto">
         {/* Grid lines */}
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#525252" strokeOpacity="0.4" />
         <line x1={padding.left} y1={padding.top} x2={width - padding.right} y2={padding.top} stroke="#525252" strokeOpacity="0.2" />

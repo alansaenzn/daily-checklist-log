@@ -41,10 +41,9 @@ export function SystemHealthCard({
   };
 
   // SVG ring chart - creates a circular progress visualization
-  // Smaller SVG for mobile
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const svgSize = isMobile ? 100 : 140;
-  const circleRadius = isMobile ? 35 : 45;
+  // Fixed desktop size (140px) with CSS transform for mobile responsiveness
+  const svgSize = 140;
+  const circleRadius = 45;
   const circumference = 2 * Math.PI * circleRadius;
   const displayOffset = ((100 - displayPercent) / 100) * circumference;
 
@@ -63,13 +62,14 @@ export function SystemHealthCard({
       {/* Main Content - Ring Chart + Insight */}
       <div className="flex flex-col md:flex-row gap-3 md:gap-6 items-start md:items-center">
         {/* Ring Chart */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 w-[100px] md:w-[140px]">
           <svg
             width={svgSize}
             height={svgSize}
             viewBox="0 0 120 120"
             role="img"
             aria-label={`${displayPercent}% system health`}
+            className="w-full h-auto"
           >
             {/* Background circle */}
             <circle
@@ -102,7 +102,7 @@ export function SystemHealthCard({
               y="68"
               textAnchor="middle"
               className="font-black fill-gray-900 dark:fill-white"
-              fontSize={isMobile ? "18" : "24"}
+              fontSize="24"
               fontWeight="900"
             >
               {displayPercent}%
