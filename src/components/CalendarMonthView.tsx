@@ -254,7 +254,7 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
           const textClass =
             filteredCount === 0
               ? "text-zinc-500 dark:text-zinc-400"
-              : `${getTextColorClass(filteredCount, effectiveThresholds)} dark:text-white`;
+              : getTextColorClass(filteredCount, effectiveThresholds);
           const isActive = filteredCount > 0;
           // Keep the checkmark indicator independent of filters (based on total completion).
           const isAllDone = hasScheduled && rawCount >= scheduledCount && scheduledCount > 0;
