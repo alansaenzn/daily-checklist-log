@@ -31,13 +31,14 @@ export function getIntensityLevel(count: number, thresholds?: Partial<IntensityT
 
 export function getIntensityColorClass(count: number, thresholds?: Partial<IntensityThresholds>): string {
   const level = getIntensityLevel(count, thresholds);
-  // Dark mode palette adjusted for stronger contrast and visibility
-  if (level === "none") return "bg-gray-200 dark:bg-gray-800";
-  if (level === "light") return "bg-emerald-100 dark:bg-emerald-600";
-  if (level === "medium") return "bg-emerald-400 dark:bg-emerald-500";
-  if (level === "high") return "bg-emerald-600 dark:bg-emerald-400";
+  // Inactive: clearly darker than card background for contrast
+  if (level === "none") return "bg-gray-200 dark:bg-gray-700";
+  // Active levels: bright emerald in dark mode so they pop against dark card
+  if (level === "light") return "bg-emerald-100 dark:bg-emerald-500";
+  if (level === "medium") return "bg-emerald-400 dark:bg-emerald-400";
+  if (level === "high") return "bg-emerald-600 dark:bg-emerald-300";
   // Peak: brightest in dark mode to stand out; pair with dark text
-  return "bg-emerald-800 text-white dark:bg-emerald-300";
+  return "bg-emerald-800 text-white dark:bg-emerald-200";
 }
 
 export function getIntensityLabel(count: number, thresholds?: Partial<IntensityThresholds>): string {
@@ -111,7 +112,7 @@ export function getTextColorClass(count: number, thresholds?: Partial<IntensityT
   const level = getIntensityLevel(count, thresholds);
   // Use dark text for peak (very bright) to ensure contrast; white for high
   if (level === "high") {
-    return "text-white";
+    return "text-white dark:text-gray-900";
   }
   if (level === "peak") {
     return "text-gray-900";

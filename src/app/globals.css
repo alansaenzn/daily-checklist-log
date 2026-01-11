@@ -39,7 +39,7 @@
   }
   /* Protect heatmap cell backgrounds from dark mode overrides */
   .heatmap-cell.bg-gray-200 {
-    background-color: #e5e7eb !important;
+    background-color: #1f2937 !important;
   }
   .heatmap-cell.bg-emerald-50 {
     background-color: #f0fdf4 !important;
@@ -54,19 +54,19 @@
     background-color: #6ee7b7 !important;
   }
   .heatmap-cell.bg-emerald-400 {
-    background-color: #34d399 !important;
+    background-color: #a7f3d0 !important;
   }
   .heatmap-cell.bg-emerald-500 {
     background-color: #10b981 !important;
   }
   .heatmap-cell.bg-emerald-600 {
-    background-color: #059669 !important;
+    background-color: #6ee7b7 !important;
   }
   .heatmap-cell.bg-emerald-700 {
     background-color: #047857 !important;
   }
   .heatmap-cell.bg-emerald-800 {
-    background-color: #065f46 !important;
+    background-color: #34d399 !important;
   }
   .heatmap-cell.bg-emerald-900 {
     background-color: #064e3b !important;
@@ -74,16 +74,19 @@
 
   /* YearlyHeatmap dark mode support */
   .rounded-sm.bg-gray-200 {
-    background-color: #e5e7eb !important;
+    background-color: #1f2937 !important;
   }
   .rounded-sm.bg-emerald-100 {
     background-color: #dcfce7 !important;
   }
   .rounded-sm.bg-emerald-400 {
-    background-color: #34d399 !important;
+    background-color: #a7f3d0 !important;
   }
   .rounded-sm.bg-emerald-600 {
-    background-color: #059669 !important;
+    background-color: #6ee7b7 !important;
+  }
+  .rounded-sm.bg-emerald-800 {
+    background-color: #34d399 !important;
   }
 
   /* History/Calendar specific: headings, weekday labels, day numbers */

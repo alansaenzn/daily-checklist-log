@@ -293,7 +293,7 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
               key={idx}
               data-calendar-day={dateKey}
               type="button"
-              className={`group relative mx-auto flex h-10 w-10 items-center justify-center rounded-full ${colorClass} transition-colors duration-200 ring-1 ring-gray-200 dark:ring-gray-700/80 ${
+              className={`heatmap-cell group relative mx-auto flex h-10 w-10 items-center justify-center rounded-full ${colorClass} transition-colors duration-200 ring-1 ring-gray-200 dark:ring-gray-700/80 ${
                 onDayClick ? "cursor-pointer" : "cursor-default"
               }`}
               onMouseEnter={() => setActiveTooltipKey(dateKey)}
