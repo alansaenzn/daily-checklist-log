@@ -17,6 +17,7 @@ import { CreateTemplateModal } from "@/components/CreateTemplateModal";
 import { SystemHealthCard } from "@/components/SystemHealthCard";
 import { HeatmapCalendar } from "@/components/HeatmapCalendar";
 import { GOAL_FOCUS_AREAS } from "@/lib/task-types";
+import { calculateSystemHealth, type MomentumDay } from "@/lib/momentum/calculateSystemHealth";
 import {
   getGoalTemplateWithTasks,
   applyGoalTemplate,
@@ -29,6 +30,8 @@ interface GoalTemplatesListViewProps {
   heatmapData?: Record<string, number>;
   heatmapYear?: number;
   heatmapMonth?: number;
+  momentumCompletedByDate?: Record<string, number[]>;
+  momentumScheduledByDate?: Record<string, number[]>;
 }
 
 type TabType = "dashboard" | "templates" | "plans";
@@ -38,6 +41,8 @@ export function GoalTemplatesListView({
   heatmapData = {},
   heatmapYear = new Date().getFullYear(),
   heatmapMonth = new Date().getMonth(),
+  momentumCompletedByDate = {},
+  momentumScheduledByDate = {},
 }: GoalTemplatesListViewProps) {
   const [templates, setTemplates] = useState(initialTemplates);
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
@@ -50,6 +55,41 @@ export function GoalTemplatesListView({
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const momentumDays = useMemo<MomentumDay[]>(() => {
+    const today = new Date();
+    const days: MomentumDay[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const year = date.getFullYear();
+      const month = `${date.getMonth() + 1}`.padStart(2, "0");
+      const day = `${date.getDate()}`.padStart(2, "0");
+      const dateKey = `${year}-${month}-${day}`;
+
+      const completedDifficulties = momentumCompletedByDate[dateKey] || [];
+      const scheduledDifficulties = momentumScheduledByDate[dateKey] || [];
+
+      days.push({
+        date: dateKey,
+        completedTasks: completedDifficulties.map((difficulty) => ({
+          difficulty: difficulty as 1 | 2 | 3 | 4 | 5,
+        })),
+        scheduledTasks: scheduledDifficulties.map((difficulty) => ({
+          difficulty: difficulty as 1 | 2 | 3 | 4 | 5,
+        })),
+      });
+    }
+
+    return days;
+  }, [momentumCompletedByDate, momentumScheduledByDate]);
+
+  const systemHealthResult = useMemo(
+    () => calculateSystemHealth(momentumDays, 7),
+    [momentumDays]
+  );
+  const { percent: systemHealthPercent, breakdown } = systemHealthResult;
+  const { active: activeDays, neutral: neutralDays, inactive: inactiveDays } = breakdown;
 
   // Separate system templates (My Plan) from user templates (Plans)
   const systemTemplates = useMemo(
@@ -262,9 +302,10 @@ export function GoalTemplatesListView({
 
           {/* System Health Card */}
           <SystemHealthCard
-            activeDays={5}
-            neutralDays={1}
-            inactiveDays={1}
+            systemHealthPercent={systemHealthPercent}
+            activeDays={activeDays}
+            neutralDays={neutralDays}
+            inactiveDays={inactiveDays}
           />
 
           {/* Monthly Heatmap */}
