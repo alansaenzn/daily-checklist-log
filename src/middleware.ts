@@ -71,5 +71,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Exclude static assets like manifest and icons so PWA installs work
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons/|apple-touch-icon.png|robots.txt|sitemap.xml).*)",
+  ],
 };
