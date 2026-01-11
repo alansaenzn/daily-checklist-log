@@ -31,11 +31,13 @@ export function getIntensityLevel(count: number, thresholds?: Partial<IntensityT
 
 export function getIntensityColorClass(count: number, thresholds?: Partial<IntensityThresholds>): string {
   const level = getIntensityLevel(count, thresholds);
-  if (level === "none") return "bg-gray-200 dark:bg-gray-700";
-  if (level === "light") return "bg-emerald-100 dark:bg-emerald-900";
-  if (level === "medium") return "bg-emerald-400 dark:bg-emerald-600";
-  if (level === "high") return "bg-emerald-600 dark:bg-emerald-400";
-  return "bg-emerald-800 text-white dark:bg-emerald-300 dark:text-gray-900";
+  // Dark mode palette adjusted for stronger contrast against white text
+  // Ensure backgrounds remain dark enough so `dark:text-white` overlays are legible
+  if (level === "none") return "bg-gray-200 dark:bg-gray-800";
+  if (level === "light") return "bg-emerald-100 dark:bg-emerald-800";
+  if (level === "medium") return "bg-emerald-400 dark:bg-emerald-700";
+  if (level === "high") return "bg-emerald-600 dark:bg-emerald-600";
+  return "bg-emerald-800 text-white dark:bg-emerald-500";
 }
 
 export function getIntensityLabel(count: number, thresholds?: Partial<IntensityThresholds>): string {

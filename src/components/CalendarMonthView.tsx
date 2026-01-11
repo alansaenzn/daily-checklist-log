@@ -173,6 +173,28 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
     };
   }, []);
 
+  // Derive effective intensity thresholds for the month.
+  // If none provided, scale based on observed max to ensure visible contrast
+  const maxCountInMonth = useMemo(() => {
+    let max = 0;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = formatDateKey(year, month, day);
+      max = Math.max(max, data[key] || 0);
+    }
+    return max;
+  }, [data, daysInMonth, month, year]);
+
+  const effectiveThresholds = useMemo(() => {
+    if (intensityThresholds) return intensityThresholds;
+    const max = Math.max(1, maxCountInMonth);
+    // Quartile-based thresholds with ascending guarantees
+    const light = Math.max(1, Math.ceil(max * 0.2));
+    const medium = Math.max(light + 1, Math.ceil(max * 0.4));
+    const high = Math.max(medium + 1, Math.ceil(max * 0.6));
+    const peak = Math.max(high + 1, Math.ceil(max * 0.8));
+    return { light, medium, high, peak } as IntensityThresholds;
+  }, [intensityThresholds, maxCountInMonth]);
+
   return (
     <div className="w-full max-w-md mx-auto">
       {/* Streak summary above the calendar */}
@@ -228,11 +250,11 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
           const dateObj = new Date(year, month, day);
 
           const hasScheduled = scheduledCount > 0;
-          const colorClass = getColorClass(filteredCount, intensityThresholds);
+          const colorClass = getColorClass(filteredCount, effectiveThresholds);
           const textClass =
             filteredCount === 0
               ? "text-zinc-500 dark:text-zinc-400"
-              : `${getTextColorClass(filteredCount, intensityThresholds)} dark:text-white`;
+              : `${getTextColorClass(filteredCount, effectiveThresholds)} dark:text-white`;
           const isActive = filteredCount > 0;
           // Keep the checkmark indicator independent of filters (based on total completion).
           const isAllDone = hasScheduled && rawCount >= scheduledCount && scheduledCount > 0;
@@ -271,7 +293,7 @@ const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
               key={idx}
               data-calendar-day={dateKey}
               type="button"
-              className={`group relative mx-auto flex h-10 w-10 items-center justify-center rounded-full ${colorClass} transition-colors duration-200 ${
+              className={`group relative mx-auto flex h-10 w-10 items-center justify-center rounded-full ${colorClass} transition-colors duration-200 ring-1 ring-gray-200 dark:ring-gray-700/80 ${
                 onDayClick ? "cursor-pointer" : "cursor-default"
               }`}
               onMouseEnter={() => setActiveTooltipKey(dateKey)}
