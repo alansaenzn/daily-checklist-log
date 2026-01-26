@@ -14,6 +14,7 @@ export interface Project {
   user_id: string;
   name: string;
   description?: string | null;
+  category?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +23,7 @@ export interface ProjectWithCount {
   id: string;
   name: string;
   description?: string | null;
+  category?: string | null;
   created_at: string;
   task_count: number;
 }
@@ -29,7 +31,10 @@ export interface ProjectWithCount {
 /**
  * Create a new project
  */
-export async function createProject(name: string): Promise<ProjectWithCount> {
+export async function createProject(
+  name: string,
+  category?: string | null
+): Promise<ProjectWithCount> {
   const supabase = supabaseServer();
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   
@@ -45,12 +50,18 @@ export async function createProject(name: string): Promise<ProjectWithCount> {
     throw new Error("Project name must be 100 characters or less");
   }
 
+  const insertData: Record<string, any> = {
+    user_id: userData.user.id,
+    name: name.trim(),
+  };
+
+  if (category && category.trim()) {
+    insertData.category = category.trim();
+  }
+
   const { data, error } = await supabase
     .from("projects")
-    .insert({
-      user_id: userData.user.id,
-      name: name.trim(),
-    })
+    .insert(insertData)
     .select()
     .single();
 
@@ -64,6 +75,7 @@ export async function createProject(name: string): Promise<ProjectWithCount> {
     id: data.id,
     name: data.name,
     description: data.description ?? null,
+    category: data.category ?? null,
     created_at: data.created_at,
     task_count: 0,
   };
@@ -87,6 +99,7 @@ export async function getProjectsWithCounts(): Promise<ProjectWithCount[]> {
       id,
       name,
       description,
+      category,
       created_at
     `)
     .eq("user_id", userData.user.id)
@@ -110,6 +123,7 @@ export async function getProjectsWithCounts(): Promise<ProjectWithCount[]> {
         id: project.id,
         name: project.name,
         description: project.description ?? null,
+        category: project.category ?? null,
         created_at: project.created_at,
         task_count: count || 0,
       };
@@ -125,7 +139,8 @@ export async function getProjectsWithCounts(): Promise<ProjectWithCount[]> {
 export async function updateProject(
   projectId: string,
   name: string,
-  description?: string | null
+  description?: string | null,
+  category?: string | null
 ): Promise<void> {
   const supabase = supabaseServer();
   const { data: userData, error: userErr } = await supabase.auth.getUser();
@@ -146,6 +161,11 @@ export async function updateProject(
   // Only include description if provided so older schemas without the column do not error.
   if (typeof description !== "undefined") {
     payload.description = description === null ? null : description.trim();
+  }
+
+  // Include category if provided (can be null to clear it)
+  if (typeof category !== "undefined") {
+    payload.category = category === null || category.trim() === "" ? null : category.trim();
   }
 
   const { error } = await supabase

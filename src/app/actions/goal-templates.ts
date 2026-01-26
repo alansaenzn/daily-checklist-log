@@ -252,3 +252,298 @@ export async function createGoalTemplate(
     taskCount: tasks.length,
   };
 }
+
+/**
+ * Update a goal template (user templates only)
+ */
+export async function updateGoalTemplate(
+  templateId: string,
+  updates: {
+    name?: string;
+    description?: string | null;
+    focus_area?: string;
+  }
+) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    throw new Error("Not authenticated");
+  }
+
+  // Verify ownership
+  const { data: template, error: fetchErr } = await supabase
+    .from("goal_templates")
+    .select("created_by, is_system")
+    .eq("id", templateId)
+    .single();
+
+  if (fetchErr || !template) {
+    throw new Error("Template not found");
+  }
+
+  if (template.is_system || template.created_by !== userData.user.id) {
+    throw new Error("Cannot edit this template");
+  }
+
+  const { error } = await supabase
+    .from("goal_templates")
+    .update(updates)
+    .eq("id", templateId);
+
+  if (error) {
+    throw new Error(`Failed to update template: ${error.message}`);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Delete a goal template (user templates only)
+ */
+export async function deleteGoalTemplate(templateId: string) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    throw new Error("Not authenticated");
+  }
+
+  // Verify ownership
+  const { data: template, error: fetchErr } = await supabase
+    .from("goal_templates")
+    .select("created_by, is_system")
+    .eq("id", templateId)
+    .single();
+
+  if (fetchErr || !template) {
+    throw new Error("Template not found");
+  }
+
+  if (template.is_system || template.created_by !== userData.user.id) {
+    throw new Error("Cannot delete this template");
+  }
+
+  // Delete tasks first (should cascade, but being explicit)
+  await supabase
+    .from("goal_template_tasks")
+    .delete()
+    .eq("goal_template_id", templateId);
+
+  // Delete template
+  const { error } = await supabase
+    .from("goal_templates")
+    .delete()
+    .eq("id", templateId);
+
+  if (error) {
+    throw new Error(`Failed to delete template: ${error.message}`);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Add a task to a goal template
+ */
+export async function addTaskToTemplate(
+  templateId: string,
+  task: {
+    title: string;
+    description?: string;
+    category?: string;
+    isOptional?: boolean;
+    estimatedDurationMinutes?: number;
+  }
+) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    throw new Error("Not authenticated");
+  }
+
+  // Verify ownership
+  const { data: template, error: fetchErr } = await supabase
+    .from("goal_templates")
+    .select("created_by, is_system")
+    .eq("id", templateId)
+    .single();
+
+  if (fetchErr || !template) {
+    throw new Error("Template not found");
+  }
+
+  if (template.is_system || template.created_by !== userData.user.id) {
+    throw new Error("Cannot edit this template");
+  }
+
+  // Get the next display order
+  const { data: existingTasks } = await supabase
+    .from("goal_template_tasks")
+    .select("display_order")
+    .eq("goal_template_id", templateId)
+    .order("display_order", { ascending: false })
+    .limit(1);
+
+  const nextOrder = (existingTasks?.[0]?.display_order || 0) + 1;
+
+  const { data: newTask, error } = await supabase
+    .from("goal_template_tasks")
+    .insert({
+      goal_template_id: templateId,
+      title: task.title.trim(),
+      description: task.description || null,
+      category: task.category || "General",
+      is_optional: task.isOptional || false,
+      estimated_duration_minutes: task.estimatedDurationMinutes || null,
+      display_order: nextOrder,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add task: ${error.message}`);
+  }
+
+  return newTask as GoalTemplateTask;
+}
+
+/**
+ * Update a task in a goal template
+ */
+export async function updateTemplateTask(
+  taskId: string,
+  updates: {
+    title?: string;
+    description?: string | null;
+    category?: string;
+    is_optional?: boolean;
+    estimated_duration_minutes?: number | null;
+  }
+) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    throw new Error("Not authenticated");
+  }
+
+  // Verify ownership through template
+  const { data: task, error: fetchErr } = await supabase
+    .from("goal_template_tasks")
+    .select(`
+      *,
+      goal_template:goal_templates(created_by, is_system)
+    `)
+    .eq("id", taskId)
+    .single();
+
+  if (fetchErr || !task) {
+    throw new Error("Task not found");
+  }
+
+  const template = (task as any).goal_template;
+  if (template.is_system || template.created_by !== userData.user.id) {
+    throw new Error("Cannot edit this task");
+  }
+
+  const { error } = await supabase
+    .from("goal_template_tasks")
+    .update(updates)
+    .eq("id", taskId);
+
+  if (error) {
+    throw new Error(`Failed to update task: ${error.message}`);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Delete a task from a goal template
+ */
+export async function deleteTemplateTask(taskId: string) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    throw new Error("Not authenticated");
+  }
+
+  // Verify ownership through template
+  const { data: task, error: fetchErr } = await supabase
+    .from("goal_template_tasks")
+    .select(`
+      *,
+      goal_template:goal_templates(created_by, is_system)
+    `)
+    .eq("id", taskId)
+    .single();
+
+  if (fetchErr || !task) {
+    throw new Error("Task not found");
+  }
+
+  const template = (task as any).goal_template;
+  if (template.is_system || template.created_by !== userData.user.id) {
+    throw new Error("Cannot delete this task");
+  }
+
+  const { error } = await supabase
+    .from("goal_template_tasks")
+    .delete()
+    .eq("id", taskId);
+
+  if (error) {
+    throw new Error(`Failed to delete task: ${error.message}`);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Reorder tasks in a goal template
+ */
+export async function reorderTemplateTasks(
+  templateId: string,
+  taskIds: string[]
+) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+  if (userErr || !userData.user) {
+    throw new Error("Not authenticated");
+  }
+
+  // Verify ownership
+  const { data: template, error: fetchErr } = await supabase
+    .from("goal_templates")
+    .select("created_by, is_system")
+    .eq("id", templateId)
+    .single();
+
+  if (fetchErr || !template) {
+    throw new Error("Template not found");
+  }
+
+  if (template.is_system || template.created_by !== userData.user.id) {
+    throw new Error("Cannot reorder this template");
+  }
+
+  // Update display_order for each task
+  const updates = taskIds.map((taskId, index) => ({
+    id: taskId,
+    display_order: index,
+  }));
+
+  for (const update of updates) {
+    await supabase
+      .from("goal_template_tasks")
+      .update({ display_order: update.display_order })
+      .eq("id", update.id)
+      .eq("goal_template_id", templateId);
+  }
+
+  return { success: true };
+}

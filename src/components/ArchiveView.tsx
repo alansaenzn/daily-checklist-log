@@ -1,5 +1,17 @@
 "use client";
 import React, { useCallback, useEffect, useState } from "react";
+import {
+  Tab as RACTab,
+  TabList as RACTabList,
+  Tabs as RACTabs,
+  SelectionIndicator,
+  composeRenderProps,
+  type TabListProps,
+  type TabProps,
+  type TabsProps,
+} from "react-aria-components";
+import { tv } from "tailwind-variants";
+import { twMerge } from "tailwind-merge";
 import { useDateNavigation } from "@/lib/DateNavigationContext";
 import ArchiveHeader from "./ArchiveHeader";
 import CalendarViewSwitcher, { ViewMode } from "../app/history/CalendarViewSwitcher";
@@ -14,6 +26,77 @@ const VIEW_OPTIONS: { label: string; value: ViewMode }[] = [
   { label: "Yearly", value: "yearly" },
 ];
 
+const focusRing = tv({
+  base:
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900",
+});
+
+const tabsStyles = tv({
+  base: "flex gap-4 font-sans max-w-full",
+  variants: {
+    orientation: {
+      horizontal: "flex-col",
+      vertical: "flex-row",
+    },
+  },
+});
+
+function Tabs(props: TabsProps) {
+  return (
+    <RACTabs
+      {...props}
+      className={composeRenderProps(props.className, (className, renderProps) => tabsStyles({ ...renderProps, className }))}
+    />
+  );
+}
+
+const tabListStyles = tv({
+  base: "flex max-w-full p-1 -m-1 overflow-x-auto overflow-y-clip [scrollbar-width:none]",
+  variants: {
+    orientation: {
+      horizontal: "flex-row",
+      vertical: "flex-col items-start",
+    },
+  },
+});
+
+function TabList<T extends object>(props: TabListProps<T>) {
+  return (
+    <RACTabList
+      {...props}
+      className={composeRenderProps(props.className, (className, renderProps) => tabListStyles({ ...renderProps, className }))}
+    />
+  );
+}
+
+const tabProps = tv({
+  extend: focusRing,
+  base:
+    "group relative flex items-center cursor-default rounded-full px-3 py-1.5 text-sm font-medium transition forced-color-adjust-none [-webkit-tap-highlight-color:transparent]",
+  variants: {
+    isDisabled: {
+      true:
+        "text-neutral-200 dark:text-neutral-600 forced-colors:text-[GrayText] selected:text-white dark:selected:text-neutral-500 forced-colors:selected:text-[HighlightText] selected:bg-neutral-200 dark:selected:bg-neutral-600 forced-colors:selected:bg-[GrayText]",
+    },
+  },
+});
+
+function Tab(props: TabProps) {
+  return (
+    <RACTab
+      {...props}
+      className={composeRenderProps(props.className, (className, renderProps) => tabProps({ ...renderProps, className }))}
+    >
+      {composeRenderProps(props.children, (children) => (
+        <>
+          {children}
+          <SelectionIndicator className="absolute top-0 left-0 w-full h-full z-10 bg-white rounded-full mix-blend-difference group-disabled:bg-neutral-400 group-disabled:mix-blend-normal group-disabled:dark:bg-neutral-600 group-disabled:-z-1 motion-safe:transition-[translate,width,height] " />
+        </>
+      ))}
+    </RACTab>
+  );
+}
+
 const ArchiveViewTabs: React.FC = () => {
   const { viewMode, setViewMode, setCurrentDate } = useDateNavigation();
 
@@ -23,22 +106,15 @@ const ArchiveViewTabs: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-wrap justify-end gap-2" role="group" aria-label="Archive view switcher">
-      {VIEW_OPTIONS.map(({ label, value }) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => changeView(value)}
-          className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300 dark:border-gray-700 dark:focus:ring-gray-600 ${
-            viewMode === value
-              ? "border-gray-900 bg-gray-900 text-white shadow-sm dark:border-white dark:bg-white dark:text-gray-900"
-              : "bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-gray-600"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <Tabs selectedKey={viewMode} onSelectionChange={(key) => changeView(key as ViewMode)} className="w-full" orientation="horizontal">
+      <TabList aria-label="Archive view switcher" className="justify-end">
+        {VIEW_OPTIONS.map(({ label, value }) => (
+          <Tab id={value} key={value} className={twMerge("text-gray-700 dark:text-gray-200", viewMode === value && "text-gray-900 dark:text-white") }>
+            {label}
+          </Tab>
+        ))}
+      </TabList>
+    </Tabs>
   );
 };
 
@@ -123,27 +199,18 @@ export default function ArchiveView({ initialData, initialDailyRange }: ArchiveV
    */
   const buildMergedDailyData = useCallback((): Record<string, (typeof data.completedTasksByDate[string])> => {
     const merged: Record<string, ArchiveDailyTaskEntry[]> = {};
+    
+    // Only include completed tasks in the archive
     Object.entries(data.completedTasksByDate).forEach(([date, tasks]) => {
       merged[date] = [...tasks];
     });
     
-    // Add scheduled tasks to each day with isScheduled flag
-    Object.entries(data.scheduledTasksByDate).forEach(([date, tasks]) => {
-      if (!merged[date]) {
-        merged[date] = [];
-      }
-      // Add scheduled tasks with isScheduled flag
-      tasks.forEach(task => {
-        merged[date].push({
-          ...task,
-          completed_at: null,
-          isScheduled: true,
-        });
-      });
-    });
+    // Note: Scheduled tasks are intentionally excluded from archive view
+    // Archive should only show completed tasks (historical record)
+    // Scheduled tasks can be viewed in the dashboard/calendar views
     
     return merged;
-  }, [data.completedTasksByDate, data.scheduledTasksByDate]);
+  }, [data.completedTasksByDate]);
 
   /**
    * Refetch data when date changes

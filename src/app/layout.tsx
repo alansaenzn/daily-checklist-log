@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import BottomNav from "@/components/BottomNav";
+import ThemeRegistry from "@/components/ThemeRegistry";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,10 +46,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-950 text-gray-900 dark:text-white`}
       >
+        <ServiceWorkerRegister />
         {/* Main content with bottom padding for fixed nav */}
-        <div className="pb-20">
-          {children}
-        </div>
+        <ThemeRegistry>
+          <div className="pb-20">
+            {children}
+          </div>
+        </ThemeRegistry>
         {/* Fixed bottom navigation (hidden on auth routes via BottomNav component) */}
         <BottomNav />
       </body>

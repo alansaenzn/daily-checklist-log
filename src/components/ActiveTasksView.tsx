@@ -12,6 +12,7 @@ import { useState, useEffect } from "react";
 import TaskRow from "@/app/tasks/TaskRow";
 import TaskForm from "@/app/tasks/TaskForm";
 import { CollapsibleCategorySection } from "@/components/CollapsibleCategorySection";
+import { CreateListModal } from "@/components/CreateListModal";
 import { type TaskType } from "@/lib/task-types";
 import { normalizePriority, PriorityConfig } from "@/lib/priority-utils";
 import { useUserSettings } from "@/components/UserSettingsProvider";
@@ -96,6 +97,12 @@ export function ActiveTasksView({
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const { settings, updateSettings } = useUserSettings();
+  
+  // Multi-select state for bulk operations
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isCreateListModalOpen, setIsCreateListModalOpen] = useState(false);
+  const [bulkActionPending, setBulkActionPending] = useState(false);
 
   // Sensors for drag-and-drop
   const sensors = useSensors(
@@ -324,6 +331,66 @@ export function ActiveTasksView({
     if (typeof task.deactivated_at !== "undefined") return task.deactivated_at === null;
     return true;
   };
+  
+  // Multi-select handlers
+  const toggleMultiSelectMode = () => {
+    setIsMultiSelectMode((prev) => !prev);
+    setSelectedTaskIds(new Set()); // Clear selection when toggling mode
+  };
+  
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+  
+  const selectAllFilteredTasks = (filteredTasks: TaskTemplate[]) => {
+    const allIds = filteredTasks.map((t) => String(t.id));
+    setSelectedTaskIds(new Set(allIds));
+  };
+  
+  const clearSelection = () => {
+    setSelectedTaskIds(new Set());
+  };
+  
+  const handleBulkDeactivate = async () => {
+    if (selectedTaskIds.size === 0) return;
+    
+    setBulkActionPending(true);
+    try {
+      const { bulkSetTasksActive } = await import("@/app/actions/tasks");
+      const result = await bulkSetTasksActive(Array.from(selectedTaskIds), false);
+      
+      if (result.blocked > 0) {
+        alert(
+          `Deactivated ${result.success} task(s). ${result.blocked} completed one-off task(s) cannot be reactivated and were skipped.`
+        );
+      } else {
+        alert(`Successfully deactivated ${result.success} task(s).`);
+      }
+      
+      // Clear selection and refresh
+      setSelectedTaskIds(new Set());
+      window.location.reload();
+    } catch (err) {
+      console.error("Bulk deactivate failed:", err);
+      alert("Failed to deactivate tasks: " + (err instanceof Error ? err.message : "Unknown error"));
+    } finally {
+      setBulkActionPending(false);
+    }
+  };
+
+  const handleListCreated = () => {
+    // Refresh the page to show new tasks
+    window.location.reload();
+  };
+  
   return (
     <div className={settings.compactMode ? "space-y-4" : "space-y-6"}>
       <header className="space-y-2">
@@ -340,130 +407,234 @@ export function ActiveTasksView({
 
       <TaskForm existingCategories={existingCategories} />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label
-          htmlFor="task-sort-mode"
-          className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
+      {/* Create List Button */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Or create multiple tasks at once:
+        </p>
+        <button
+          onClick={() => setIsCreateListModalOpen(true)}
+          className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
         >
-          Sort tasks
-        </label>
-        <select
-          id="task-sort-mode"
-          value={sortMode}
-          onChange={(event) => setSortMode(event.target.value as SortMode)}
-          className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="title">Title (A-Z)</option>
-          <option value="priority">Priority (High → Low)</option>
-          <option value="created_desc">Date created (Newest)</option>
-          <option value="created_asc">Date created (Oldest)</option>
-          <option value="due_asc">Due date (Soonest)</option>
-          <option value="due_desc">Due date (Latest)</option>
-        </select>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Create List
+        </button>
+      </div>
 
-        <label
-          htmlFor="task-show-deactivated"
-          className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200"
-        >
-          <span className="uppercase tracking-wide">Show deactivated</span>
-          <span
-            className={`relative inline-flex h-7 w-12 items-center rounded-full border transition-colors ${
-              showDeactivated
-                ? "border-blue-600 bg-blue-600 dark:border-blue-500 dark:bg-blue-500"
-                : "border-gray-400 bg-gray-200 dark:border-gray-600 dark:bg-gray-700"
-            }`}
-          >
-            <input
-              id="task-show-deactivated"
-              type="checkbox"
-              checked={showDeactivated}
-              onChange={(event) => {
-                const next = event.target.checked;
-                setShowDeactivated(next);
-                updateSettings({ showInactiveTasks: next });
-              }}
-              className="absolute h-0 w-0 opacity-0"
-            />
-            <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-100 shadow-sm ring-1 ring-gray-300 dark:ring-gray-500 transition-transform ${
-                showDeactivated ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </span>
-        </label>
-
-          {/* Difficulty filter */}
-          <label
-            htmlFor="task-filter-difficulty"
-            className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
-          >
-            Difficulty
-          </label>
-          <select
-            id="task-filter-difficulty"
-            value={String(difficultyFilter)}
-            onChange={(e) => {
-              const val = e.target.value;
-              setDifficultyFilter(val === "all" ? "all" : (Number(val) as DifficultyFilter));
-            }}
-            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">Any</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-
-          {/* Type filter */}
-          <label
-            htmlFor="task-filter-type"
-            className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide"
-          >
-            Type
-          </label>
-          <select
-            id="task-filter-type"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
-            className="rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All</option>
-            <option value="recurring">Recurring</option>
-            <option value="one_off">One-off</option>
-          </select>
-
-        {/* View Mode Toggle */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs uppercase font-bold text-gray-500 dark:text-gray-400 tracking-wide">View</span>
-          <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
-            {(
-              [
-                { key: "sections", label: "Sections" },
-                { key: "list", label: "List" },
-                { key: "cards", label: "Cards" },
-              ] as { key: ViewMode; label: string }[]
-            ).map((opt, idx) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => {
-                  setViewMode(opt.key);
-                  try { localStorage.setItem("tasks-view-mode", opt.key); } catch {}
-                }}
-                className={`${
-                  viewMode === opt.key
-                    ? "bg-blue-600 text-white"
-                    : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"
-                } px-3 py-1.5 text-xs font-semibold ${idx !== 0 ? "border-l border-gray-300 dark:border-gray-700" : ""}`}
+      {/* Filters and Controls */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+        <div className="space-y-4">
+          {/* Top Row: Sort and Show Deactivated */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="task-sort-mode"
+                className="text-xs uppercase font-semibold text-gray-600 dark:text-gray-400 tracking-wide whitespace-nowrap"
               >
-                {opt.label}
-              </button>
-            ))}
+                Sort
+              </label>
+              <select
+                id="task-sort-mode"
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value as SortMode)}
+                className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="title">Title (A-Z)</option>
+                <option value="priority">Priority</option>
+                <option value="created_desc">Newest</option>
+                <option value="created_asc">Oldest</option>
+                <option value="due_asc">Due Soon</option>
+                <option value="due_desc">Due Later</option>
+              </select>
+            </div>
+
+            <div className="h-4 w-px bg-gray-300 dark:bg-gray-600" />
+
+            <label
+              htmlFor="task-show-deactivated"
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                Show Inactive
+              </span>
+              <span
+                className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors ${
+                  showDeactivated
+                    ? "border-blue-500 bg-blue-600 dark:border-blue-500 dark:bg-blue-500"
+                    : "border-gray-300 bg-gray-200 dark:border-gray-600 dark:bg-gray-700"
+                }`}
+              >
+                <input
+                  id="task-show-deactivated"
+                  type="checkbox"
+                  checked={showDeactivated}
+                  onChange={(event) => {
+                    const next = event.target.checked;
+                    setShowDeactivated(next);
+                    updateSettings({ showInactiveTasks: next });
+                  }}
+                  className="absolute h-0 w-0 opacity-0"
+                />
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                    showDeactivated ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </span>
+            </label>
+          </div>
+
+          {/* Middle Row: Filters */}
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-xs uppercase font-semibold text-gray-600 dark:text-gray-400 tracking-wide">
+              Filters
+            </span>
+            
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="task-filter-difficulty"
+                className="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap"
+              >
+                Difficulty
+              </label>
+              <select
+                id="task-filter-difficulty"
+                value={String(difficultyFilter)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDifficultyFilter(val === "all" ? "all" : (Number(val) as DifficultyFilter));
+                }}
+                className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">Any</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="task-filter-type"
+                className="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap"
+              >
+                Type
+              </label>
+              <select
+                id="task-filter-type"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+                className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All</option>
+                <option value="recurring">Recurring</option>
+                <option value="one_off">One-off</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bottom Row: View Mode and Multi-Select */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">View</span>
+              <div className="flex rounded border border-gray-300 dark:border-gray-600 overflow-hidden">
+                {(
+                  [
+                    { key: "sections", label: "Sections", icon: "☰" },
+                    { key: "list", label: "List", icon: "☰" },
+                    { key: "cards", label: "Cards", icon: "▦" },
+                  ] as { key: ViewMode; label: string; icon: string }[]
+                ).map((opt, idx) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setViewMode(opt.key);
+                      try { localStorage.setItem("tasks-view-mode", opt.key); } catch {}
+                    }}
+                    className={`${
+                      viewMode === opt.key
+                        ? "bg-blue-600 text-white"
+                        : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    } px-2.5 py-1 text-xs font-medium transition-colors ${
+                      idx !== 0 ? "border-l border-gray-300 dark:border-gray-600" : ""
+                    }`}
+                    title={opt.label}
+                  >
+                    <span className="hidden sm:inline">{opt.label}</span>
+                    <span className="sm:hidden">{opt.icon}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={toggleMultiSelectMode}
+              className={`px-3 py-1.5 text-xs font-semibold rounded border transition-colors ${
+                isMultiSelectMode
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+              }`}
+            >
+              <span className="hidden sm:inline">{isMultiSelectMode ? "Exit Multi-Select" : "Multi-Select"}</span>
+              <span className="sm:hidden">✓</span>
+            </button>
           </div>
         </div>
       </div>
+      
+      {/* Bulk Action Toolbar - Sticky when in multi-select mode */}
+      {isMultiSelectMode && (
+        <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-2 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 sm:justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <span className="text-xs sm:text-sm font-semibold text-blue-900 dark:text-blue-100 whitespace-nowrap">
+              {selectedTaskIds.size} selected
+            </span>
+            <div className="flex gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const filtered = (templates ?? []).filter((task) => {
+                    const active = isActiveTask(task);
+                    if (showDeactivated ? active : !active) return false;
+                    if (typeFilter !== "all" && (task.task_type as TaskType) !== typeFilter) return false;
+                    if (difficultyFilter !== "all") {
+                      const raw = (task as any).difficulty;
+                      const n = typeof raw === "number" ? Math.floor(raw) : NaN;
+                      if (!(n >= 1 && n <= 5) || n !== difficultyFilter) return false;
+                    }
+                    return true;
+                  });
+                  selectAllFilteredTasks(filtered);
+                }}
+                className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-semibold rounded border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-900 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 whitespace-nowrap"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-semibold rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 whitespace-nowrap"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleBulkDeactivate}
+            disabled={selectedTaskIds.size === 0 || bulkActionPending}
+            className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {bulkActionPending ? "Deactivating..." : "Deactivate"}
+          </button>
+        </div>
+      )}
 
       <section className="space-y-4">
         {/* Group tasks by category */}
@@ -560,6 +731,9 @@ export function ActiveTasksView({
                                 },
                               }));
                             }}
+                            isMultiSelectMode={isMultiSelectMode}
+                            isSelected={selectedTaskIds.has(t.id as string)}
+                            onToggleSelect={toggleTaskSelection}
                           />
                         </div>
                       ) : (
@@ -617,6 +791,9 @@ export function ActiveTasksView({
                         },
                       }));
                     }}
+                    isMultiSelectMode={isMultiSelectMode}
+                    isSelected={selectedTaskIds.has(t.id as string)}
+                    onToggleSelect={toggleTaskSelection}
                   />
                 ))}
               </div>
@@ -718,6 +895,9 @@ export function ActiveTasksView({
                                 },
                               }));
                             }}
+                            isMultiSelectMode={isMultiSelectMode}
+                            isSelected={selectedTaskIds.has(t.id as string)}
+                            onToggleSelect={toggleTaskSelection}
                           />
                         ))}
                     </div>
@@ -728,6 +908,14 @@ export function ActiveTasksView({
           );
         })()}
       </section>
+
+      {/* Create List Modal */}
+      <CreateListModal
+        isOpen={isCreateListModalOpen}
+        onClose={() => setIsCreateListModalOpen(false)}
+        onSuccess={handleListCreated}
+        existingCategories={existingCategories}
+      />
     </div>
   );
 }

@@ -8,6 +8,8 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [ready, setReady] = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     setReady(true);
@@ -15,6 +17,7 @@ export default function SignInPage() {
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
+    setMagicLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -23,6 +26,19 @@ export default function SignInPage() {
     });
     if (error) alert(error.message);
     else setSent(true);
+    setMagicLoading(false);
+  }
+
+  async function signInWithGoogle() {
+    setGoogleLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
+    if (error) alert(error.message);
+    setGoogleLoading(false);
   }
 
   return (
@@ -40,8 +56,24 @@ export default function SignInPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <button className="w-full rounded bg-black text-white p-2">
-            Send magic link
+          <button
+            className="w-full rounded bg-black text-white p-2 disabled:opacity-60"
+            disabled={magicLoading}
+          >
+            {magicLoading ? "Sending…" : "Send magic link"}
+          </button>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span className="flex-1 border-t" />
+            <span>or</span>
+            <span className="flex-1 border-t" />
+          </div>
+          <button
+            type="button"
+            onClick={signInWithGoogle}
+            className="w-full rounded border p-2 hover:bg-gray-50 disabled:opacity-60"
+            disabled={googleLoading}
+          >
+            {googleLoading ? "Redirecting…" : "Continue with Google"}
           </button>
         </form>
       )}

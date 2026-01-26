@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createGoalTemplate } from "@/app/actions/goal-templates";
 import { GOAL_FOCUS_AREAS, TASK_CATEGORIES } from "@/lib/task-types";
 
@@ -8,12 +8,14 @@ interface CreateTemplateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newTemplate: any) => void;
+  existingCategories?: string[];
 }
 
 interface TaskInput {
   id: string;
   title: string;
   category: string;
+  customCategory?: string;
   description: string;
   duration: string;
 }
@@ -22,6 +24,7 @@ export function CreateTemplateModal({
   isOpen,
   onClose,
   onSuccess,
+  existingCategories = [],
 }: CreateTemplateModalProps) {
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
@@ -31,6 +34,34 @@ export function CreateTemplateModal({
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+
+  // Merge static categories with existing/custom categories
+  useEffect(() => {
+    const customCategories: string[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('task-categories-custom');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            customCategories.push(...parsed);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load custom categories:', e);
+      }
+    }
+
+    const merged = [
+      ...TASK_CATEGORIES,
+      ...customCategories.filter((cat) => !TASK_CATEGORIES.includes(cat as any)),
+      ...existingCategories.filter(
+        (cat) => !TASK_CATEGORIES.includes(cat as any) && !customCategories.includes(cat)
+      ),
+    ];
+    setAllCategories(merged);
+  }, [existingCategories, isOpen]);
 
   if (!isOpen) return null;
 
@@ -42,6 +73,7 @@ export function CreateTemplateModal({
         id: newId.toString(),
         title: "",
         category: TASK_CATEGORIES[0],
+        customCategory: "",
         description: "",
         duration: "",
       },
@@ -84,16 +116,38 @@ export function CreateTemplateModal({
 
     setIsSubmitting(true);
     try {
+      // Process custom categories and save to localStorage
+      const processedTasks = validTasks.map((t) => {
+        let finalCategory = t.category;
+        if (t.category === "Custom" && t.customCategory?.trim()) {
+          finalCategory = t.customCategory.trim();
+          // Save to localStorage if not already there
+          if (typeof window !== 'undefined') {
+            try {
+              const stored = localStorage.getItem('task-categories-custom');
+              const customCategories: string[] = stored ? JSON.parse(stored) : [];
+              if (!customCategories.includes(finalCategory) && !TASK_CATEGORIES.includes(finalCategory as any)) {
+                customCategories.push(finalCategory);
+                localStorage.setItem('task-categories-custom', JSON.stringify(customCategories));
+              }
+            } catch (e) {
+              console.error('Failed to save custom category:', e);
+            }
+          }
+        }
+        return {
+          title: t.title,
+          description: t.description || undefined,
+          category: finalCategory,
+          estimatedDurationMinutes: t.duration ? parseInt(t.duration) : undefined,
+        };
+      });
+
       const result = await createGoalTemplate(
         templateName,
         templateDescription || null,
         focusArea,
-        validTasks.map((t) => ({
-          title: t.title,
-          description: t.description || undefined,
-          category: t.category,
-          estimatedDurationMinutes: t.duration ? parseInt(t.duration) : undefined,
-        }))
+        processedTasks
       );
 
       onSuccess(result);
@@ -103,7 +157,7 @@ export function CreateTemplateModal({
       setTemplateDescription("");
       setFocusArea(GOAL_FOCUS_AREAS[0]);
       setTasks([
-        { id: "1", title: "", category: TASK_CATEGORIES[0], description: "", duration: "" },
+        { id: "1", title: "", category: TASK_CATEGORIES[0], customCategory: "", description: "", duration: "" },
       ]);
       onClose();
     } catch (err) {
@@ -219,11 +273,12 @@ export function CreateTemplateModal({
                       className="rounded border border-gray-300 dark:bg-gray-800 dark:border-gray-600 dark:text-white p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={isSubmitting}
                     >
-                      {TASK_CATEGORIES.map((cat) => (
+                      {allCategories.map((cat) => (
                         <option key={cat} value={cat}>
                           {cat}
                         </option>
                       ))}
+                      <option value="Custom">Custom...</option>
                     </select>
                     <input
                       type="number"
@@ -235,6 +290,18 @@ export function CreateTemplateModal({
                       disabled={isSubmitting}
                     />
                   </div>
+
+                  {/* Custom Category Input */}
+                  {task.category === "Custom" && (
+                    <input
+                      type="text"
+                      value={task.customCategory || ""}
+                      onChange={(e) => handleTaskChange(task.id, "customCategory", e.target.value)}
+                      placeholder="Enter custom category name"
+                      className="w-full rounded border border-gray-300 dark:bg-gray-800 dark:border-gray-600 dark:text-white p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isSubmitting}
+                    />
+                  )}
 
                   {/* Task Description */}
                   <input

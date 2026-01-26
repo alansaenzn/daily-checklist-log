@@ -50,7 +50,6 @@ export default function TodayChecklist({
 
   const [items, setItems] = useState(initialItems);
   const [isPending, startTransition] = useTransition();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("title");
   const [hasLoadedSortMode, setHasLoadedSortMode] = useState(false);
   const [filter, setFilter] = useState<FilterState>({
@@ -283,10 +282,6 @@ export default function TodayChecklist({
                 item={i}
                 projectName={projectName}
                 hasDetails={hasDetails}
-                isExpanded={expandedId === i.id}
-                onToggleDetails={() =>
-                  setExpandedId((prev) => (prev === i.id ? null : i.id))
-                }
                 onToggle={() => onToggle(i.id)}
                 isPending={isPending}
               />
@@ -503,16 +498,12 @@ function TaskCard({
   item,
   projectName,
   hasDetails,
-  isExpanded,
-  onToggleDetails,
   onToggle,
   isPending,
 }: {
   item: Item;
   projectName: string | null;
   hasDetails: boolean;
-  isExpanded: boolean;
-  onToggleDetails: () => void;
   onToggle: () => void;
   isPending: boolean;
 }) {
@@ -548,23 +539,8 @@ function TaskCard({
           ▶
         </button>
 
-        <button
-          type="button"
-          className={`btn-plain flex-1 text-left min-w-0 ${hasDetails ? "" : "cursor-default"}`}
-          onClick={() => (hasDetails ? onToggleDetails() : undefined)}
-          {...(hasDetails
-            ? { "aria-expanded": isExpanded, "aria-controls": `active-task-details-${item.id}` }
-            : {})}
-        >
+        <div className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-300 transition-transform ${
-                hasDetails ? "" : "opacity-60 cursor-default"
-              } ${isExpanded ? "rotate-90" : ""}`}
-              aria-hidden
-            >
-              <span aria-hidden>›</span>
-            </span>
             <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 whitespace-normal break-words">
               {item.title}
             </h3>
@@ -580,7 +556,7 @@ function TaskCard({
               </>
             )}
           </div>
-        </button>
+        </div>
 
         <button
           type="button"
@@ -600,7 +576,7 @@ function TaskCard({
       {hasDetails && (
         <TaskDetailsPreview
           id={`active-task-details-${item.id}`}
-          isOpen={isExpanded}
+          isOpen={true}
           category={item.category}
           projectName={projectName}
           taskType={item.task_type}

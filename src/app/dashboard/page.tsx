@@ -130,6 +130,12 @@ async function fetchTimelineTasks(
 
 /**
  * Fetch scheduled task difficulties for the last 7 days
+ * 
+ * For system health calculation, "scheduled" means all active tasks that should
+ * have been worked on each day. This includes:
+ * - All recurring tasks (they're always "on the schedule")
+ * - One-off tasks with due dates in the range
+ * - Active tasks without due dates (part of daily work)
  */
 async function fetchScheduledTasksByDate(
   supabase: ReturnType<typeof supabaseServer>,
@@ -139,11 +145,10 @@ async function fetchScheduledTasksByDate(
 ): Promise<Record<string, number[]>> {
   const { data, error } = await supabase
     .from("task_templates")
-    .select("id,due_date,difficulty")
+    .select("id,task_type,due_date,difficulty,is_active,archived_at,created_at")
     .eq("user_id", userId)
-    .not("due_date", "is", null)
-    .gte("due_date", startDate)
-    .lte("due_date", endDate);
+    .eq("is_active", true)
+    .is("archived_at", null);
 
   if (error) {
     console.error("Failed to fetch scheduled tasks by date:", error.message);
@@ -151,17 +156,44 @@ async function fetchScheduledTasksByDate(
   }
 
   const scheduledByDate: Record<string, number[]> = {};
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // Generate all dates in range
+  const dates: string[] = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    dates.push(formatDateKey(new Date(d)));
+  }
+
   (data || []).forEach((task) => {
-    const date = task.due_date as string;
     const difficulty =
       typeof task.difficulty === "number" && task.difficulty >= 1 && task.difficulty <= 5
         ? Math.floor(task.difficulty)
         : 3;
 
-    if (!scheduledByDate[date]) {
-      scheduledByDate[date] = [];
-    }
-    scheduledByDate[date].push(difficulty);
+    const taskCreatedDate = new Date(task.created_at as string);
+
+    dates.forEach((dateKey) => {
+      const currentDate = new Date(dateKey);
+      
+      // Skip if task wasn't created yet on this date
+      if (currentDate < taskCreatedDate) return;
+
+      // Include task if:
+      // 1. It's recurring (always scheduled)
+      // 2. It's one-off with a due date matching this date
+      // 3. It's one-off without a due date (consider scheduled for all days after creation)
+      const isRecurring = task.task_type === "recurring";
+      const hasDueDateOnThisDay = task.due_date === dateKey;
+      const isOneOffWithoutDueDate = task.task_type === "one_off" && !task.due_date;
+
+      if (isRecurring || hasDueDateOnThisDay || isOneOffWithoutDueDate) {
+        if (!scheduledByDate[dateKey]) {
+          scheduledByDate[dateKey] = [];
+        }
+        scheduledByDate[dateKey].push(difficulty);
+      }
+    });
   });
 
   return scheduledByDate;

@@ -403,7 +403,7 @@ export function GoalTemplatesListView({
                           2
                         : 1
                     }
-                    onPreview={() => handlePreview(template.id)}
+                    isUserTemplate={template.created_by !== null}
                     onApply={() => handlePreview(template.id)}
                     isApplying={isApplying && previewTemplate?.id === template.id}
                   />

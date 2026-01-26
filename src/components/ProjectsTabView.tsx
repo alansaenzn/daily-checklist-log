@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { createProject, updateProject, deleteProject } from "../app/actions/projects";
-import { getProjectTasks, getUnassignedTasks } from "../app/actions/project-tasks";
+import { getProjectTasks, getUnassignedTasks, getAllActiveTasks } from "../app/actions/project-tasks";
 import { createTaskTemplate, updateTaskTemplate } from "../app/actions/tasks";
 import { TaskRowDisplay, type TaskData } from "./TaskRowDisplay";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string | null;
+  category?: string | null;
   created_at: string;
   task_count: number;
 }
@@ -33,6 +34,7 @@ export function ProjectsTabView({ projects: initialProjects }: ProjectsTabViewPr
   const [projects, setProjects] = useState(initialProjects);
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectCategory, setNewProjectCategory] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [projectTasks, setProjectTasks] = useState<Record<string, TaskData[]>>({});
@@ -85,9 +87,13 @@ export function ProjectsTabView({ projects: initialProjects }: ProjectsTabViewPr
 
     setError(null);
     try {
-      const project = await createProject(newProjectName.trim());
+      const project = await createProject(
+        newProjectName.trim(),
+        newProjectCategory.trim() || null
+      );
       setProjects([project, ...projects]);
       setNewProjectName("");
+      setNewProjectCategory("");
       setIsCreating(false);
     } catch (err: any) {
       setError(err.message || "Failed to create project");
@@ -140,17 +146,25 @@ export function ProjectsTabView({ projects: initialProjects }: ProjectsTabViewPr
   const handleSaveProject = async (
     projectId: string,
     nextName: string,
-    nextDescription: string | null
+    nextDescription: string | null,
+    nextCategory?: string | null
   ) => {
     // Optimistically update UI
     setProjects((prev) =>
       prev.map((p) =>
-        p.id === projectId ? { ...p, name: nextName, description: nextDescription ?? null } : p
+        p.id === projectId
+          ? {
+              ...p,
+              name: nextName,
+              description: nextDescription ?? null,
+              category: nextCategory ?? p.category,
+            }
+          : p
       )
     );
 
     try {
-      await updateProject(projectId, nextName, nextDescription);
+      await updateProject(projectId, nextName, nextDescription, nextCategory);
     } catch (err) {
       console.error("Failed to update project", err);
       // On error, revert by refetching view
@@ -209,6 +223,16 @@ export function ProjectsTabView({ projects: initialProjects }: ProjectsTabViewPr
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white p-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
+          <div>
+            <input
+              type="text"
+              value={newProjectCategory}
+              onChange={(e) => setNewProjectCategory(e.target.value)}
+              placeholder="Category (optional)..."
+              maxLength={50}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white p-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           )}
@@ -225,6 +249,7 @@ export function ProjectsTabView({ projects: initialProjects }: ProjectsTabViewPr
               onClick={() => {
                 setIsCreating(false);
                 setNewProjectName("");
+                setNewProjectCategory("");
                 setError(null);
               }}
               className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -265,7 +290,7 @@ export function ProjectsTabView({ projects: initialProjects }: ProjectsTabViewPr
               onToggle={() => toggleProject(project.id)}
               onTaskClick={handleTaskClick}
               onTaskManage={(taskId) => startTaskEdit(project.id, taskId)}
-              onSave={(name, description) => handleSaveProject(project.id, name, description)}
+              onSave={(name, description, category) => handleSaveProject(project.id, name, description, category)}
               onDelete={() => handleDeleteProject(project.id)}
               onTaskUpdated={(updated) => handleTaskUpdated(project.id, updated)}
               onCloseTaskEdit={closeTaskEdit}
@@ -292,7 +317,7 @@ interface ProjectAccordionProps {
   onToggle: () => void;
   onTaskClick: (taskId: string) => void;
   onTaskManage: (taskId: string) => void;
-  onSave: (name: string, description: string | null) => Promise<void>;
+  onSave: (name: string, description: string | null, category?: string | null) => Promise<void>;
   onDelete: () => Promise<void>;
   onTaskUpdated: (updated: Partial<TaskData> & { id: string }) => void;
   onCloseTaskEdit: () => void;
@@ -329,13 +354,16 @@ function ProjectAccordion({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || "");
+  const [category, setCategory] = useState(project.category || "");
   const [sortMode, setSortMode] = useState<SortMode>("title");
   const [isAdding, setIsAdding] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [availableExisting, setAvailableExisting] = useState<TaskData[]>([]);
+  const [allTasks, setAllTasks] = useState<TaskData[]>([]);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [isAttaching, setIsAttaching] = useState(false);
   const [selectedExistingId, setSelectedExistingId] = useState("");
+  const [categoryFilterForAdding, setCategoryFilterForAdding] = useState<string>("all");
   type DifficultyFilter = "all" | 1 | 2 | 3 | 4 | 5;
   type TypeFilter = "all" | "recurring" | "one_off";
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
@@ -346,21 +374,42 @@ function ProjectAccordion({
   const availableCategories = Array.from(
     new Set(tasks.map((t) => t.category).filter((c): c is string => Boolean(c)))
   );
+  
+  // Get ALL unique categories from both current project tasks AND unassigned tasks
+  const availableExistingCategories = Array.from(
+    new Set(allTasks.map((t) => t.category).filter((c): c is string => Boolean(c)))
+  ).sort();
+  
+  // Filter available existing tasks by selected category
+  // Use allTasks but exclude tasks already in current project
+  const tasksNotInProject = allTasks.filter((t) => t.project_id !== project.id);
+  const filteredAvailableExisting = categoryFilterForAdding === "all"
+    ? tasksNotInProject
+    : tasksNotInProject.filter((t) => 
+        categoryFilterForAdding === "uncategorized" 
+          ? !t.category 
+          : t.category === categoryFilterForAdding
+      );
 
   useEffect(() => {
     if (!isEditing) {
       setName(project.name);
       setDescription(project.description || "");
+      setCategory(project.category || "");
     }
-  }, [project.name, project.description, isEditing]);
+  }, [project.name, project.description, project.category, isEditing]);
 
   // Load unassigned tasks when expanded so user can attach existing activities
   useEffect(() => {
     const loadExisting = async () => {
       try {
         setIsLoadingExisting(true);
-        const list = await getUnassignedTasks();
-        setAvailableExisting(list);
+        const [unassigned, all] = await Promise.all([
+          getUnassignedTasks(),
+          getAllActiveTasks()
+        ]);
+        setAvailableExisting(unassigned);
+        setAllTasks(all);
       } catch (err) {
         console.error("Failed to load unassigned tasks", err);
       } finally {
@@ -445,7 +494,11 @@ function ProjectAccordion({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(name.trim(), description.trim() === "" ? null : description.trim());
+      await onSave(
+        name.trim(),
+        description.trim() === "" ? null : description.trim(),
+        category.trim() === "" ? null : category.trim()
+      );
       setIsEditing(false);
     } finally {
       setIsSaving(false);
@@ -503,10 +556,17 @@ function ProjectAccordion({
           </svg>
 
           {/* Project Name */}
-          <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-              {project.name}
-            </h3>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                {project.name}
+              </h3>
+              {project.category && !isEditing && (
+                <span className="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                  {project.category}
+                </span>
+              )}
+            </div>
             {project.description && !isEditing && (
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                 {project.description}
@@ -525,6 +585,7 @@ function ProjectAccordion({
                 setConfirmDelete(false);
                 setName(project.name);
                 setDescription(project.description || "");
+                setCategory(project.category || "");
               }}
               className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               aria-label={`Cancel editing project ${project.name}`}
@@ -585,6 +646,20 @@ function ProjectAccordion({
                     aria-label={`Edit project description for ${project.name}`}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Category (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    maxLength={50}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white p-3 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Work, Personal, Fitness"
+                    aria-label={`Edit project category for ${project.name}`}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -603,6 +678,7 @@ function ProjectAccordion({
                     setConfirmDelete(false);
                     setName(project.name);
                     setDescription(project.description || "");
+                    setCategory(project.category || "");
                   }}
                   className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                 >
@@ -764,29 +840,51 @@ function ProjectAccordion({
                     {isAdding ? "Adding..." : "Add Task"}
                   </button>
                 </form>
-                <div className="mt-3 flex items-center gap-2 flex-wrap justify-center">
-                  <select
-                    value={selectedExistingId}
-                    onChange={(e) => setSelectedExistingId(e.target.value)}
-                    disabled={isLoadingExisting || availableExisting.length === 0 || isAttaching}
-                    className="min-w-[240px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    aria-label="Select existing activity to add"
-                  >
-                    <option value="">{isLoadingExisting ? "Loading activities..." : availableExisting.length === 0 ? "No unassigned activities" : "Select an existing activity"}</option>
-                    {availableExisting.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => handleAttachExisting(selectedExistingId)}
-                    disabled={!selectedExistingId || isAttaching}
-                    className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isAttaching ? "Adding..." : "Add existing"}
-                  </button>
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-center">
+                    {availableExistingCategories.length > 0 && (
+                      <select
+                        value={categoryFilterForAdding}
+                        onChange={(e) => {
+                          setCategoryFilterForAdding(e.target.value);
+                          setSelectedExistingId("");
+                        }}
+                        disabled={isLoadingExisting || isAttaching}
+                        className="min-w-[160px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        aria-label="Filter by category"
+                      >
+                        <option value="all">All Categories</option>
+                        <option value="uncategorized">Uncategorized</option>
+                        {availableExistingCategories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <select
+                      value={selectedExistingId}
+                      onChange={(e) => setSelectedExistingId(e.target.value)}
+                      disabled={isLoadingExisting || filteredAvailableExisting.length === 0 || isAttaching}
+                      className="min-w-[240px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      aria-label="Select existing activity to add"
+                    >
+                      <option value="">{isLoadingExisting ? "Loading activities..." : filteredAvailableExisting.length === 0 ? "No activities in this category" : "Select an existing activity"}</option>
+                      {filteredAvailableExisting.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleAttachExisting(selectedExistingId)}
+                      disabled={!selectedExistingId || isAttaching}
+                      className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isAttaching ? "Adding..." : "Add existing"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -832,29 +930,51 @@ function ProjectAccordion({
                   </button>
                 </form>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <select
-                  value={selectedExistingId}
-                  onChange={(e) => setSelectedExistingId(e.target.value)}
-                  disabled={isLoadingExisting || availableExisting.length === 0 || isAttaching}
-                  className="min-w-[240px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  aria-label="Select existing activity to add"
-                >
-                  <option value="">{isLoadingExisting ? "Loading activities..." : availableExisting.length === 0 ? "No unassigned activities" : "Select an existing activity"}</option>
-                  {availableExisting.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => handleAttachExisting(selectedExistingId)}
-                  disabled={!selectedExistingId || isAttaching}
-                  className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAttaching ? "Adding..." : "Add existing"}
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {availableExistingCategories.length > 0 && (
+                    <select
+                      value={categoryFilterForAdding}
+                      onChange={(e) => {
+                        setCategoryFilterForAdding(e.target.value);
+                        setSelectedExistingId("");
+                      }}
+                      disabled={isLoadingExisting || isAttaching}
+                      className="min-w-[160px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      aria-label="Filter by category"
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="uncategorized">Uncategorized</option>
+                      {availableExistingCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <select
+                    value={selectedExistingId}
+                    onChange={(e) => setSelectedExistingId(e.target.value)}
+                    disabled={isLoadingExisting || filteredAvailableExisting.length === 0 || isAttaching}
+                    className="min-w-[240px] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    aria-label="Select existing activity to add"
+                  >
+                    <option value="">{isLoadingExisting ? "Loading activities..." : filteredAvailableExisting.length === 0 ? "No activities in this category" : "Select an existing activity"}</option>
+                    {filteredAvailableExisting.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleAttachExisting(selectedExistingId)}
+                    disabled={!selectedExistingId || isAttaching}
+                    className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAttaching ? "Adding..." : "Add existing"}
+                  </button>
+                </div>
               </div>
               {sortedTasks.map((task) => (
                 <TaskRowDisplay

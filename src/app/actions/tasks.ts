@@ -252,6 +252,67 @@ export async function setTaskActive(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Bulk deactivate or activate multiple tasks at once.
+ * Returns statistics about succeeded/failed/skipped tasks.
+ */
+export async function bulkSetTasksActive(
+  taskIds: string[],
+  isActive: boolean
+) {
+  const supabase = supabaseServer();
+  const { data: userData, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !userData.user) throw new Error("Not authenticated");
+
+  if (!taskIds || taskIds.length === 0) {
+    throw new Error("No tasks provided");
+  }
+
+  // Fetch all templates to validate
+  const { data: templates, error: fetchErr } = await supabase
+    .from("task_templates")
+    .select("id, task_type, archived_at")
+    .eq("user_id", userData.user.id)
+    .in("id", taskIds);
+
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!templates || templates.length === 0) {
+    throw new Error("No matching tasks found");
+  }
+
+  // Filter out completed one-offs if trying to reactivate
+  const validIds: string[] = [];
+  const blockedIds: string[] = [];
+
+  for (const template of templates) {
+    if (isActive && template.task_type === "one_off" && template.archived_at) {
+      blockedIds.push(template.id);
+    } else {
+      validIds.push(template.id);
+    }
+  }
+
+  // Update valid tasks
+  let updateCount = 0;
+  if (validIds.length > 0) {
+    const { error: updateErr, count } = await supabase
+      .from("task_templates")
+      .update({ is_active: isActive })
+      .eq("user_id", userData.user.id)
+      .in("id", validIds);
+
+    if (updateErr) throw new Error(updateErr.message);
+    updateCount = count ?? validIds.length;
+  }
+
+  return {
+    success: updateCount,
+    blocked: blockedIds.length,
+    blockedIds,
+    total: taskIds.length,
+  };
+}
+
 export async function deleteTask(taskTemplateId: string) {
   const supabase = supabaseServer();
   const { data: userData, error: userErr } = await supabase.auth.getUser();

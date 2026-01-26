@@ -36,6 +36,10 @@ interface TaskRowProps {
   projectLookup?: Record<string, string>;
   onUpdated?: (updated: Partial<Task> & { id: string }) => void;
   startEditing?: boolean;
+  // Multi-select mode props
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (taskId: string) => void;
 }
 
 export default function TaskRow({
@@ -47,6 +51,9 @@ export default function TaskRow({
   projectLookup,
   onUpdated,
   startEditing,
+  isMultiSelectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: TaskRowProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(Boolean(startEditing));
@@ -519,6 +526,19 @@ export default function TaskRow({
         ) : (
           <div className="space-y-3">
             <div className="flex items-start gap-3 flex-wrap">
+              {/* Checkbox for multi-select mode */}
+              {isMultiSelectMode && (
+                <label className="flex h-8 w-8 items-center justify-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect?.(task.id)}
+                    className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                  />
+                  <span className="sr-only">Select task</span>
+                </label>
+              )}
+              
               <button
                 type="button"
                 onClick={handleToggleExpand}

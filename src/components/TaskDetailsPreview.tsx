@@ -75,38 +75,36 @@ export function TaskDetailsPreview({
                 </div>
               )}
 
-              {/* Pill row: Priority, Difficulty */}
-              {(priorityLabel || typeof difficultyLevel === "number") && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {priorityLabel && (
-                    <>
-                      <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Priority</span>
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
-                        {priorityLabel}
-                      </span>
-                    </>
-                  )}
-                  {typeof difficultyLevel === "number" && (() => {
-                    const level = Math.max(1, Math.min(5, Math.floor(difficultyLevel)));
-                    const label = level <= 2 ? "Easy" : level === 3 ? "Medium" : level === 4 ? "Hard" : "Very Hard";
-                    const cls = level <= 2
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200"
-                      : level === 3
-                        ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200"
-                        : level === 4
-                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200"
-                          : "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200";
-                    return (
-                      <>
-                        <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Activity level</span>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
-                          {label}
-                        </span>
-                      </>
-                    );
-                  })()}
+              {/* Priority */}
+              {priorityLabel && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Priority</span>
+                  <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200">
+                    {priorityLabel}
+                  </span>
                 </div>
               )}
+
+              {/* Activity Level */}
+              {typeof difficultyLevel === "number" && (() => {
+                const level = Math.max(1, Math.min(5, Math.floor(difficultyLevel)));
+                const label = level <= 2 ? "Easy" : level === 3 ? "Medium" : level === 4 ? "Hard" : "Very Hard";
+                const cls = level <= 2
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-200"
+                  : level === 3
+                    ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-200"
+                    : level === 4
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200"
+                      : "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-200";
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">Activity level</span>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
+                      {label}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Due date as simple text */}
               {formattedDueDate && (
